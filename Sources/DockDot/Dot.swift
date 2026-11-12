@@ -1,7 +1,9 @@
 import AppKit
 
+@available(macOS 26.0, *)
 enum Edge { case left, right, top, bottom }
 
+@available(macOS 26.0, *)
 final class DotPanel: NSPanel {
     init(size: CGFloat) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
@@ -20,6 +22,7 @@ final class DotPanel: NSPanel {
 }
 
 /// 仿 iPhone 小圆点：圆角方块 + 三层同心圆
+@available(macOS 26.0, *)
 final class DotView: NSView {
     var onClick: (() -> Void)?
     var onDragStart: (() -> Void)?
@@ -88,6 +91,7 @@ final class DotView: NSView {
     }
 }
 
+@available(macOS 26.0, *)
 final class DotController {
     let size: CGFloat = 50
     let window: DotPanel

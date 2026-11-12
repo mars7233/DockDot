@@ -1,5 +1,6 @@
 import AppKit
 
+@available(macOS 26.0, *)
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dot: DotController!
     private var launcher: LauncherController!
@@ -59,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openSettings() { SettingsWindowController.shared.show() }
 }
 
+@available(macOS 26.0, *)
 extension AppDelegate: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         dotToggleItem.title = dot.isVisible ? "隐藏小圆点" : "显示小圆点"

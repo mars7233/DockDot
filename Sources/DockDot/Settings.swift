@@ -2,6 +2,7 @@ import AppKit
 import Combine
 
 /// 所有可调参数，存在 UserDefaults（local.dockdot）。改动后发 `AppSettings.changed` 通知。
+@available(macOS 26.0, *)
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
     static let changed = Notification.Name("DockDotSettingsChanged")

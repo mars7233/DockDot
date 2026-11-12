@@ -1,5 +1,6 @@
 import AppKit
 
+@available(macOS 26.0, *)
 struct DockItem {
     let url: URL
     let name: String
@@ -9,6 +10,7 @@ struct DockItem {
 }
 
 /// 读取系统 Dock 的固定 App（com.apple.dock / persistent-apps）和正在运行的 App。
+@available(macOS 26.0, *)
 enum DockReader {
     private static let domain = "com.apple.dock" as CFString
 

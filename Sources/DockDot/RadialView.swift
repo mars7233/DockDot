@@ -5,6 +5,7 @@ import QuartzCore
 // 文字和小点跟着变（浅背景深字、深背景浅字），不用自己加阴影或暗底。
 
 /// 选中时图标后面的柔光：中间淡、边缘渐隐，没有描边
+@available(macOS 26.0, *)
 private final class HighlightView: NSView {
     var strength: CGFloat = 0.10 { didSet { needsDisplay = true } }
     override func draw(_ dirtyRect: NSRect) {
@@ -16,6 +17,7 @@ private final class HighlightView: NSView {
 }
 
 /// 运行中的小点
+@available(macOS 26.0, *)
 private final class DotMark: NSView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor.labelColor.withAlphaComponent(0.8).setFill()
@@ -26,6 +28,7 @@ private final class DotMark: NSView {
 /// 一整块液态玻璃圆盘：图标沿边缘排一圈，中间显示当前指向的 App。
 /// 鼠标从圆心往哪个方向移就选中那个方向的图标（不必精确放在图标上），点击打开；
 /// 选中的光圈会在图标之间滑动。
+@available(macOS 26.0, *)
 final class RadialView: NSView {
     private struct Slot {
         let item: DockItem

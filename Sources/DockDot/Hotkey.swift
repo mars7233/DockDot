@@ -3,6 +3,7 @@ import AppKit
 /// 单独按一下 ⌥⌘（按下再松开，中间没按别的键、没点鼠标）触发 onTap。
 /// ⌥⌘D、⌥⌘Space、⌥⌘Esc、⌥⌘ 点击/拖动 等组合都不会误触发。
 /// 全局监听需要「辅助功能」权限。
+@available(macOS 26.0, *)
 final class ModifierHotkey {
     var onTap: (() -> Void)?
 

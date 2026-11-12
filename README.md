@@ -22,30 +22,30 @@ DockDot 在屏幕边缘放一个类似 iPhone「辅助触控」的半透明小�
 
 ## 系统要求
 
-- macOS 26 或更高版本（液态玻璃 API 从 macOS 26 开始才有；在 macOS 27.2 上开发和测试）
+- **macOS 26（Tahoe）或更高版本**：液态玻璃是 macOS 26 才有的系统功能。在 macOS 27.2 上开发和测试。
+- Apple 芯片和 Intel 的 Mac 都可以用（安装包是通用版）
 - 「悬停 / 按下时玻璃有反应」需要 macOS 27
-- 编译需要 Xcode 或 Command Line Tools（Swift 6）
+
+DockDot 启动时会先检查环境。如果系统低于 macOS 26，会弹出提示说明原因，提供「打开软件更新」按钮，然后退出，不会打开一个用不了的 App。
 
 ## 安装
 
-```bash
-git clone git@github.com:mars7233/DockDot.git
-cd DockDot
-./scripts/make-signing-cert.sh   # 只需运行一次：创建本机自用的签名证书
-./build.sh                       # 编译、签名，安装到 ~/Applications/DockDot.app
-open ~/Applications/DockDot.app
-```
+### 下载安装（推荐）
 
-**为什么要建签名证书？** macOS 是按 App 的签名来记住「辅助功能」权限的。如果不用固定的证书签名，每次重新编译，App 的签名都会变，系统会当成一个新 App，你就得重新授权一次。`make-signing-cert.sh` 会在「登录」钥匙串里建一个只在本机使用的自签名证书「DockDot Local Signing」，`build.sh` 找到它就会用它签名。钥匙串里显示它「不受信任」是正常的，不影响使用。不建这个证书也能用，只是 `build.sh` 会退回临时签名，每次编译后都要重新授权。
+1. 到 [Releases](https://github.com/mars7233/DockDot/releases/latest) 下载 `DockDot-x.y.z.dmg`，双击打开。
+2. 把 **DockDot** 拖到旁边的 **Applications（应用程序）** 文件夹。
+3. 在「应用程序」里打开 DockDot。
 
-> `build.sh` 会先在临时目录里打包和签名，再安装到 `~/Applications`。这是因为开了 iCloud 同步的「文稿」等目录会给文件加扩展属性，`codesign` 遇到这些属性会拒绝签名。
+如果直接在安装盘里双击打开，DockDot 会提示你先把它放进「应用程序」文件夹，也可以点按钮让它自己移过去并重新打开。原因是：从安装盘里运行时，macOS 会把 App 放在一个临时位置，辅助功能权限和开机启动都会失效。
 
-### 首次运行：授权辅助功能
+**第一次打开被拦住？** DockDot 没有付费的 Apple 开发者签名，所以 macOS 第一次会提示「无法验证开发者」或「Apple 无法检查其是否包含恶意软件」。处理方法：打开 **系统设置 → 隐私与安全性**，在页面下方找到 DockDot，点「**仍要打开**」。只需要这一次。
+
+### 授权辅助功能
 
 ⌥⌘ 快捷键和跨桌面切换都需要「辅助功能」权限：
 
 1. 打开 **系统设置 → 隐私与安全性 → 辅助功能**。
-2. 打开 DockDot 的开关；如果列表里没有，点「+」，选择 `~/Applications/DockDot.app`。
+2. 打开 DockDot 的开关；如果列表里没有，点「+」，选择「应用程序」里的 DockDot。
 3. 从菜单栏退出 DockDot，再重新打开。
 
 没有授权时，小圆点照样能用，只是 ⌥⌘ 快捷键不起作用。授权状态可以在 **设置 → 通用** 里查看。
@@ -55,6 +55,28 @@ open ~/Applications/DockDot.app
 ```bash
 defaults write com.apple.dock autohide -bool true && killall Dock
 ```
+
+### 从源码编译
+
+需要 Xcode 或 Command Line Tools（Swift 6）。
+
+```bash
+git clone git@github.com:mars7233/DockDot.git
+cd DockDot
+./scripts/make-signing-cert.sh   # 只需运行一次：创建本机自用的签名证书
+./build.sh                       # 编译本机架构、签名，安装到 ~/Applications/DockDot.app
+open ~/Applications/DockDot.app
+```
+
+打发布用的安装包（Apple 芯片 + Intel 通用版，输出到 `dist/DockDot-<版本>.dmg`）：
+
+```bash
+VERSION=1.0.0 ./scripts/package-dmg.sh
+```
+
+**为什么要建签名证书？** macOS 是按 App 的签名来记住「辅助功能」权限的。不用固定的证书签名的话，每次重新编译签名都会变，系统会把它当成一个新 App，你就得重新授权一次。`make-signing-cert.sh` 会在「登录」钥匙串里建一个只在本机使用的自签名证书「DockDot Local Signing」，打包脚本找到它就会用它签名。钥匙串里显示它「不受信任」是正常的，不影响使用。不建这个证书也能编译，只是会退回临时签名，每次编译后都要重新授权。发布版也用这个证书签名，所以用户升级到新版本时不用重新授权。
+
+> 打包脚本会先在临时目录里组装和签名。这是因为开了 iCloud 同步的「文稿」等目录会给文件加扩展属性，`codesign` 遇到这些属性会拒绝签名。
 
 ## 使用
 
@@ -100,7 +122,8 @@ defaults write com.apple.dock autohide -bool true && killall Dock
 
 ```
 Sources/DockDot/
-├── main.swift            入口；--dump / --where 调试参数
+├── main.swift            入口：先做环境检测，再启动；调试参数
+├── EnvironmentCheck.swift 启动前的环境检测（系统版本、是否从安装盘运行）
 ├── AppDelegate.swift     组装各部分、菜单栏菜单
 ├── Dot.swift             悬浮小圆点（拖动、吸附、记住位置）
 ├── Hotkey.swift          ⌥⌘ 单按检测
@@ -110,8 +133,11 @@ Sources/DockDot/
 ├── SpaceFocus.swift      切到其他桌面上的窗口
 ├── Settings.swift        设置数据（UserDefaults）
 └── SettingsWindow.swift  设置窗口（SwiftUI）：预览、参考背景、调色盘
+Resources/AppIcon.icns        App 图标（由 scripts/make-icon.swift 生成）
 scripts/make-signing-cert.sh  创建本机自用签名证书
-build.sh                      编译、签名、安装
+scripts/make-app.sh           编译、组装、签名 DockDot.app
+scripts/package-dmg.sh        打包发布用的 DMG（通用版）
+build.sh                      本地开发：编译并安装到 ~/Applications
 ```
 
 ### 调试参数
@@ -125,6 +151,11 @@ build.sh                      编译、签名、安装
 
 # 启动时直接打开设置窗口
 open ~/Applications/DockDot.app --args --settings
+
+# 打印环境检测结果；后两个参数在正常的 Mac 上模拟「系统太旧」「从安装盘运行」的提示
+~/Applications/DockDot.app/Contents/MacOS/DockDot --env-check
+open ~/Applications/DockDot.app --args --simulate-old-macos
+open ~/Applications/DockDot.app --args --simulate-dmg
 ```
 
 ## 已知限制
@@ -132,7 +163,8 @@ open ~/Applications/DockDot.app --args --settings
 - 跨桌面切换用到了 SkyLight 私有接口，以后的 macOS 更新可能会让它失效。失效时会退回普通的「激活 App」，不会崩溃。
 - 面板只显示 App，不显示 Dock 上的文件夹、文件和废纸篓。
 - App 超过 22 个时会自动排成内外两圈。
-- 只在 Apple 芯片的 Mac、macOS 27.2 上测试过。
+- 没有 Apple 开发者签名和公证，第一次打开需要在「隐私与安全性」里点「仍要打开」。
+- 只在 Apple 芯片的 Mac、macOS 27.2 上测试过；Intel 版能编译，但没有在真机上跑过。
 
 ## 致谢
 

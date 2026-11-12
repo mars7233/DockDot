@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ServiceManagement
 
+@available(macOS 26.0, *)
 final class SettingsWindowController {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
@@ -23,6 +24,7 @@ final class SettingsWindowController {
 
 // MARK: - 根视图
 
+@available(macOS 26.0, *)
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
 
@@ -39,6 +41,7 @@ struct SettingsView: View {
 
 // MARK: - 外观
 
+@available(macOS 26.0, *)
 enum PreviewBackground: String, CaseIterable, Identifiable {
     case wallpaper, lightDoc, darkDoc, colorful, white
     var id: String { rawValue }
@@ -53,6 +56,7 @@ enum PreviewBackground: String, CaseIterable, Identifiable {
     }
 }
 
+@available(macOS 26.0, *)
 struct AppearanceTab: View {
     @ObservedObject var settings: AppSettings
     @State private var background: PreviewBackground = .lightDoc
@@ -119,6 +123,7 @@ struct AppearanceTab: View {
     }
 }
 
+@available(macOS 26.0, *)
 struct SliderRow: View {
     let title: String
     @Binding var value: Double
@@ -152,6 +157,7 @@ struct SliderRow: View {
 }
 
 /// 内置调色盘：常用色块 + 色相条 + 明暗，不弹系统颜色窗口
+@available(macOS 26.0, *)
 struct TintPalette: View {
     @Binding var color: NSColor
 
@@ -217,6 +223,7 @@ struct TintPalette: View {
 }
 
 /// 彩虹色相条，拖动/点击选色相
+@available(macOS 26.0, *)
 struct HueBar: View {
     @Binding var hue: Double
 
@@ -241,6 +248,7 @@ struct HueBar: View {
 }
 
 /// 把真正的 RadialView 放进 SwiftUI，参数一改就重新布局
+@available(macOS 26.0, *)
 struct RadialPreview: NSViewRepresentable {
     @ObservedObject var settings: AppSettings
     let items: [DockItem]
@@ -249,6 +257,7 @@ struct RadialPreview: NSViewRepresentable {
     func updateNSView(_ v: PreviewHost, context: Context) { v.reload(items) }
 }
 
+@available(macOS 26.0, *)
 final class PreviewHost: NSView {
     private let radial = RadialView()
 
@@ -277,6 +286,7 @@ final class PreviewHost: NSView {
 
 // MARK: - 参考背景
 
+@available(macOS 26.0, *)
 struct PreviewBackgroundView: View {
     let kind: PreviewBackground
 
@@ -302,6 +312,7 @@ struct PreviewBackgroundView: View {
     }()
 }
 
+@available(macOS 26.0, *)
 private struct ColorfulBackground: View {
     var body: some View {
         ZStack {
@@ -315,6 +326,7 @@ private struct ColorfulBackground: View {
 }
 
 /// 模拟一个文字很多的窗口，用来看玻璃压在杂乱内容上的效果
+@available(macOS 26.0, *)
 private struct DocumentMock: View {
     let dark: Bool
 
@@ -360,6 +372,7 @@ private struct DocumentMock: View {
 
 // MARK: - 通用
 
+@available(macOS 26.0, *)
 struct GeneralTab: View {
     @ObservedObject var settings: AppSettings
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled

@@ -11,6 +11,7 @@ private func _AXUIElementGetWindow(_ element: AXUIElement, _ wid: UnsafeMutableP
 /// 另一个桌面上，普通的「激活 App」不会把那块屏幕切过去。这里参考 AltTab：
 /// 从系统窗口列表（包含所有桌面）里找到这个 App 最前面的窗口，再通过 SkyLight
 /// 让窗口服务器把这个窗口放到最前，系统会自动切到它所在的桌面。
+@available(macOS 26.0, *)
 enum SpaceFocus {
     private typealias SetFrontFn = @convention(c) (UnsafeMutableRawPointer, CGWindowID, UInt32) -> Int32
     private typealias PostEventFn = @convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<UInt8>) -> Int32

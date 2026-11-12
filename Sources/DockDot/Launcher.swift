@@ -1,6 +1,7 @@
 import AppKit
 import QuartzCore
 
+@available(macOS 26.0, *)
 final class LauncherPanel: NSPanel {
     var onCancel: (() -> Void)?
     init() {
@@ -19,11 +20,13 @@ final class LauncherPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) { onCancel?() }   // Esc
 }
 
+@available(macOS 26.0, *)
 enum Anchor {
     case mouse
     case dot(NSRect, Edge)
 }
 
+@available(macOS 26.0, *)
 final class LauncherController {
     private let panel = LauncherPanel()
     private let root = NSView()
