@@ -33,9 +33,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupMainMenu()
         if CommandLine.arguments.contains("--settings") || CommandLine.arguments.contains("--settings-tab") { SettingsWindowController.shared.show() }
 
-        // 快捷键需要辅助功能权限；没授权时只弹一次系统提示，小圆点照常可用
-        let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(opts)
+        // 辅助功能权限：只在第一次启动时请求一次。系统不会记住「已经问过」，
+        // 每调用一次就弹一次框，所以之后不再自动请求，改由 设置 → 权限 里的按钮让用户主动授权
+        let d = UserDefaults.standard
+        if !AXIsProcessTrusted() && !d.bool(forKey: "didPromptAccessibility") {
+            d.set(true, forKey: "didPromptAccessibility")
+            let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(opts)
+        }
     }
 
     private func toggleFromDot() {

@@ -21,10 +21,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             w.titleVisibility = .hidden
             w.toolbarStyle = .unified
             w.isReleasedWhenClosed = false
-            w.setContentSize(NSSize(width: 900, height: 660))
+            w.setContentSize(NSSize(width: 1100, height: 720))
             w.delegate = self
             w.center()
-            w.setFrameAutosaveName("DockDotSettings")
             window = w
             NotificationCenter.default.addObserver(forName: AppSettings.changed, object: nil, queue: .main) { [weak w] _ in
                 w?.title = L("DockDot 设置", "DockDot Settings")
@@ -157,7 +156,7 @@ struct SettingsView: View {
             }
             .navigationTitle((nav.pane ?? .appearance).title)
         }
-        .frame(minWidth: 900, minHeight: 660)
+        .frame(minWidth: 1100, minHeight: 720)
     }
 }
 
@@ -234,30 +233,33 @@ struct AppearancePane: View {
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(pane: .appearance)
-            Form {
-                Section {
+            HStack(alignment: .top, spacing: 0) {
+                // 左边：固定不动的预览，右边改任何参数都能马上看到效果
+                VStack(alignment: .leading, spacing: 14) {
                     RadialPreview(settings: settings, items: sample)
-                        .frame(height: 380)
-                        .frame(maxWidth: .infinity)
+                        .frame(width: 420, height: 440)
                         .background(alignment: .top) { PreviewBackgroundView(kind: background) }
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-                        .padding(.vertical, 4)
-                    LabeledContent(L("参考背景", "Background")) {
-                        HStack(spacing: 10) {
-                            ForEach(PreviewBackground.allCases) { kind in
-                                BackgroundChip(kind: kind, selected: kind == background)
-                                    .onTapGesture { background = kind }
-                                    .help(kind.title)
-                            }
+                    HStack(spacing: 10) {
+                        Text(L("参考背景", "Background")).font(.system(size: 12)).foregroundStyle(.secondary)
+                        Spacer()
+                        ForEach(PreviewBackground.allCases) { kind in
+                            BackgroundChip(kind: kind, selected: kind == background)
+                                .onTapGesture { background = kind }
+                                .help(kind.title)
                         }
                     }
-                } footer: {
                     Footnote(L("预览用的是 Dock 里的前 10 个 App，鼠标移到预览上可以试试选中效果。",
                                "The preview uses the first 10 apps in your Dock. Hover over it to try the selection effect."))
+                    Spacer(minLength: 0)
                 }
+                .frame(width: 420)
+                .padding(.leading, 30)
+                .padding(.top, 18)
 
+                Form {
                 Section {
                     LabeledContent(L("样式", "Style")) {
                         Picker(L("样式", "Style"), selection: $settings.glassStyle) {
@@ -306,8 +308,9 @@ struct AppearancePane: View {
                         Button(L("恢复默认外观", "Restore Defaults")) { settings.resetAppearance() }
                     }
                 }
+                }
+                .formStyle(.grouped)
             }
-            .formStyle(.grouped)
         }
     }
 }
