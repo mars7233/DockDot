@@ -143,7 +143,12 @@ final class AppSettings: ObservableObject {
     }
 
     /// 实际给玻璃用的着色
+    /// 程序坞是独立的固定样式：和系统 Dock 一样，不着色
     var effectiveTint: NSColor? {
-        tintEnabled && tintAlpha > 0 ? tintColor.withAlphaComponent(tintAlpha) : nil
+        guard glassStyle != .dock else { return nil }
+        return tintEnabled && tintAlpha > 0 ? tintColor.withAlphaComponent(tintAlpha) : nil
     }
+
+    /// 玻璃对悬停/按下的反馈：程序坞样式不用（系统 Dock 本身没有这种反馈）
+    var effectiveInteractive: Bool { glassStyle != .dock && interactive }
 }

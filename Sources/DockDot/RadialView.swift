@@ -140,7 +140,7 @@ final class RadialView: NSView {
         }
         disc.clipsToBounds = false
         if #available(macOS 27.0, *) {
-            disc.effectIsInteractive = s.interactive // 鼠标悬停/按下时玻璃本身会有反应
+            disc.effectIsInteractive = s.effectiveInteractive // 鼠标悬停/按下时玻璃本身会有反应
         }
         content.frame = disc.bounds
         disc.contentView = content
