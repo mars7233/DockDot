@@ -5,6 +5,7 @@ struct DockItem {
     let name: String
     let icon: NSImage
     let isRunning: Bool
+    let isPinned: Bool
 }
 
 /// 读取系统 Dock 的固定 App（com.apple.dock / persistent-apps）和正在运行的 App。
@@ -43,7 +44,8 @@ enum DockReader {
             DockItem(url: u,
                      name: fm.displayName(atPath: u.path).replacingOccurrences(of: ".app", with: ""),
                      icon: NSWorkspace.shared.icon(forFile: u.path),
-                     isRunning: runningKeys.contains(key(u)))
+                     isRunning: runningKeys.contains(key(u)),
+                     isPinned: true)
         }
 
         let pinnedKeys = Set(urls.map(key))
@@ -52,7 +54,8 @@ enum DockReader {
             return DockItem(url: u,
                             name: a.localizedName ?? u.deletingPathExtension().lastPathComponent,
                             icon: a.icon ?? NSWorkspace.shared.icon(forFile: u.path),
-                            isRunning: true)
+                            isRunning: true,
+                            isPinned: false)
         }
         return (pinned, others)
     }
