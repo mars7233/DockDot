@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "DockDot",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS("26.0")],   // 液态玻璃（NSGlassEffectView）需要 macOS 26
     targets: [
         .executableTarget(name: "DockDot", path: "Sources/DockDot")
     ]
