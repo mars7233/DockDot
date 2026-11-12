@@ -6,9 +6,10 @@ import QuartzCore
 
 /// 选中时图标后面的柔光：中间淡、边缘渐隐，没有描边
 private final class HighlightView: NSView {
+    var strength: CGFloat = 0.10 { didSet { needsDisplay = true } }
     override func draw(_ dirtyRect: NSRect) {
-        let g = NSGradient(colors: [NSColor.labelColor.withAlphaComponent(0.10),
-                                    NSColor.labelColor.withAlphaComponent(0.06),
+        let g = NSGradient(colors: [NSColor.labelColor.withAlphaComponent(strength),
+                                    NSColor.labelColor.withAlphaComponent(strength * 0.6),
                                     NSColor.labelColor.withAlphaComponent(0)])
         g?.draw(in: NSBezierPath(ovalIn: bounds), relativeCenterPosition: .zero)
     }
@@ -49,8 +50,11 @@ final class RadialView: NSView {
     var onLaunch: ((DockItem) -> Void)?
     var onClose: (() -> Void)?
 
-    private let iconSize: CGFloat = 48
-    private let step: CGFloat = 64          // 相邻图标的弧长
+    /// 设置窗口里的预览：不播放出场动画，点击不打开 App
+    var isPreview = false
+
+    private var iconSize: CGFloat = 48      // 由设置决定
+    private var step: CGFloat { iconSize + 16 }   // 相邻图标的弧长
     private let maxSingleRing = 22
     private let deadZone: CGFloat = 34      // 圆心附近不选任何图标
 
@@ -83,6 +87,9 @@ final class RadialView: NSView {
         content.subviews.forEach { $0.removeFromSuperview() }
         slots = []
         selected = nil
+        let s = AppSettings.shared
+        iconSize = CGFloat(s.iconSize)
+        highlight.strength = CGFloat(s.highlightStrength)
 
         // nil = 固定 App 和「未固定但在运行」的 App 之间空一格，相当于 Dock 上的分隔线
         var entries: [DockItem?] = pinned
@@ -104,30 +111,19 @@ final class RadialView: NSView {
         }
         if entries.isEmpty { radii = [118] }
         // 图标离玻璃边缘留足距离，边缘的折射高光不会压在图标底下
-        R = (radii.last ?? 118) + iconSize / 2 + 36
+        R = (radii.last ?? 118) + iconSize / 2 + CGFloat(s.edgeMargin)
         let size = NSSize(width: R * 2, height: R * 2)
         frame = NSRect(origin: .zero, size: size)
         let c = NSPoint(x: R, y: R)
 
         disc.frame = bounds
         disc.cornerRadius = R
-        // 原生 regular 液态玻璃、不加着色：系统会按背后内容自动调节明暗和模糊，
-        // 浅色/文字多的背景上也不会一团乱。不裁剪，让系统自己画边缘。
-        // 可用 defaults 微调（不用重新编译）：
-        //   defaults write local.dockdot glassStyle clear|regular
-        //   defaults write local.dockdot glassTint white|black|none
-        //   defaults write local.dockdot glassTintAlpha 0.15
-        let d = UserDefaults.standard
-        disc.style = d.string(forKey: "glassStyle") == "regular" ? .regular : .clear
-        let tintAlpha = d.object(forKey: "glassTintAlpha") as? Double ?? 0.15
-        switch d.string(forKey: "glassTint") ?? "white" {
-        case "black": disc.tintColor = NSColor.black.withAlphaComponent(tintAlpha)
-        case "none": disc.tintColor = nil
-        default: disc.tintColor = NSColor.white.withAlphaComponent(tintAlpha)
-        }
+        // 液态玻璃参数都来自设置；不裁剪，让系统自己画边缘
+        disc.style = s.glassStyle == .regular ? .regular : .clear
+        disc.tintColor = s.effectiveTint
         disc.clipsToBounds = false
         if #available(macOS 27.0, *) {
-            disc.effectIsInteractive = true // 鼠标悬停/按下时玻璃本身会有反应
+            disc.effectIsInteractive = s.interactive // 鼠标悬停/按下时玻璃本身会有反应
         }
         content.frame = disc.bounds
         disc.contentView = content
@@ -147,13 +143,13 @@ final class RadialView: NSView {
                 iv.imageScaling = .scaleProportionallyUpOrDown
                 iv.wantsLayer = true
                 content.addSubview(iv)
-                if item.isRunning {
+                if item.isRunning && s.showRunningDots {
                     // 小点放在图标朝圆心的一侧
                     let d = iconSize / 2 + 6
                     let m = DotMark(frame: circle(NSPoint(x: p.x - d * cos(a), y: p.y - d * sin(a)), 2))
                     content.addSubview(m)
                 }
-                popIn(iv, delay: Double(order) * 0.012)
+                if !isPreview { popIn(iv, delay: Double(order) * 0.012) }
                 order += 1
                 slots.append(Slot(item: item, center: p, ring: k, angle: a, icon: iv))
             }
@@ -161,7 +157,9 @@ final class RadialView: NSView {
 
         let lensR = min(max(radii[0] - 50, 66), radii[0] - iconSize / 2 - 14)
         let w = lensR * 2 - 20
-        content.addSubview(CenterLens(frame: circle(c, lensR)), positioned: .below, relativeTo: highlight)
+        if s.showCenterLens {
+            content.addSubview(CenterLens(frame: circle(c, lensR)), positioned: .below, relativeTo: highlight)
+        }
         for l in [nameLabel, subLabel] {
             l.alignment = .center
             l.lineBreakMode = .byTruncatingTail

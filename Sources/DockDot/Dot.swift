@@ -102,6 +102,7 @@ final class DotController {
         window = DotPanel(size: size)
         view = DotView(frame: NSRect(x: 0, y: 0, width: size, height: size))
         window.contentView = view
+        view.idleAlpha = CGFloat(AppSettings.shared.dotIdleAlpha)
         window.alphaValue = view.idleAlpha
         view.onClick = { [weak self] in self?.onClick?() }
         view.onDragStart = { [weak self] in self?.onDragStart?() }
@@ -114,6 +115,14 @@ final class DotController {
     }
 
     var isVisible: Bool { window.isVisible }
+
+    /// 设置变化时调用：空闲透明度、显示/隐藏
+    func applySettings() {
+        let s = AppSettings.shared
+        view.idleAlpha = CGFloat(s.dotIdleAlpha)
+        if !window.frame.contains(NSEvent.mouseLocation) { window.alphaValue = view.idleAlpha }
+        if s.dotVisible && !isVisible { show() } else if !s.dotVisible && isVisible { hide() }
+    }
     func show() { window.orderFrontRegardless() }
     func hide() { window.orderOut(nil) }
 
