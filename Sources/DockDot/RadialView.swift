@@ -16,45 +16,6 @@ private final class HighlightView: NSView {
     }
 }
 
-/// 盖在圆心玻璃边缘上的一圈白色高光（上亮下淡）。
-/// 玻璃边缘自带一条偏暗的细线，在大块圆心上看起来像一圈边框；用这圈高光把它盖住，边缘就只剩光感
-@available(macOS 26.0, *)
-private final class RimHighlight: NSView {
-    var inset: CGFloat = 2
-    override func draw(_ dirtyRect: NSRect) {
-        let r = bounds.insetBy(dx: inset, dy: inset)
-        let ring = NSBezierPath(ovalIn: r.insetBy(dx: 0.6, dy: 0.6))
-        ring.lineWidth = 2.4
-        NSGraphicsContext.saveGraphicsState()
-        // 用描边的轮廓做裁剪，再在里面画从上到下的渐变
-        let stroke = ring.cgPathStroked()
-        NSBezierPath(cgPath: stroke).addClip()
-        NSGradient(colors: [NSColor.white.withAlphaComponent(0.95),
-                            NSColor.white.withAlphaComponent(0.75),
-                            NSColor.white.withAlphaComponent(0.5)])!.draw(in: r, angle: -90)
-        NSGraphicsContext.restoreGraphicsState()
-    }
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-private extension NSBezierPath {
-    func cgPathStroked() -> CGPath {
-        let p = CGMutablePath()
-        var pts = [NSPoint](repeating: .zero, count: 3)
-        for i in 0..<elementCount {
-            switch element(at: i, associatedPoints: &pts) {
-            case .moveTo: p.move(to: pts[0])
-            case .lineTo: p.addLine(to: pts[0])
-            case .curveTo, .cubicCurveTo: p.addCurve(to: pts[2], control1: pts[0], control2: pts[1])
-            case .quadraticCurveTo: p.addQuadCurve(to: pts[1], control: pts[0])
-            case .closePath: p.closeSubpath()
-            @unknown default: break
-            }
-        }
-        return p.copy(strokingWithWidth: lineWidth, lineCap: .round, lineJoin: .round, miterLimit: 10)
-    }
-}
-
 /// 运行中的小点
 @available(macOS 26.0, *)
 private final class DotMark: NSView {
@@ -102,7 +63,7 @@ final class RadialView: NSView {
     private let disc = NSGlassEffectView()
     private let hub = NSGlassEffectView()      // 一圈：圆心那块小玻璃
     private let hubContent = NSView()
-    private let hubRim = RimHighlight()      // 盖住圆心边缘的暗线
+    private let hubMask = CAGradientLayer()  // 圆心玻璃的羽化遮罩
     private let content = NSView()
     private let highlight = HighlightView()
     private let nameLabel = NSTextField(labelWithString: "")
@@ -172,13 +133,10 @@ final class RadialView: NSView {
         disc.style = s.glassStyle == .regular ? .regular : .clear
         if s.glassStyle == .dock { DockGlass.applyDockMaterial(disc) }
         disc.tintColor = s.effectiveTint
-        // 一圈 + 圆环：只在图标那一圈放玻璃，中间留空；蜂窝是整块。
-        // 一圈 + 圆盘：在圆心玻璃底下挖一个和圆心一样大的洞。玻璃叠在玻璃上时，上面那块会去折射下面那块，
-        // 边缘出现一圈发黑、在高光处断开的线；挖空后圆心直接压在真实背景上。洞和圆心贴合，只留一条边
+        // 一圈 + 圆环：只在图标那一圈放玻璃，中间留空；圆盘和蜂窝是整块。
+        // （圆心玻璃边缘做了羽化，直接叠在外圈玻璃上，不需要挖洞）
         if layout == .ring && s.discShape == .ring {
             DockGlass.setShape(disc, DockGlass.ringPath(center: c, outer: R, inner: max(20, ringRadius - iconSize / 2 - m)))
-        } else if layout == .ring && s.showCenterLens {
-            DockGlass.setShape(disc, DockGlass.ringPath(center: c, outer: R, inner: centerLensRadius(s)))
         } else {
             DockGlass.setShape(disc, nil)
         }
@@ -269,15 +227,19 @@ final class RadialView: NSView {
                 hub.contentView = hubContent
                 if hub.superview == nil { addSubview(hub, positioned: .above, relativeTo: disc) }
                 hub.isHidden = false
-                hubRim.frame = hub.frame.insetBy(dx: -hubRim.inset, dy: -hubRim.inset)
-                if hubRim.superview == nil { addSubview(hubRim, positioned: .above, relativeTo: hub) }
-                hubRim.isHidden = false
-                hubRim.needsDisplay = true
+                // 羽化：最外 15% 的半径逐渐淡出，圆心和外圈之间没有硬边，也就没有那条边线
+                hub.wantsLayer = true
+                hubMask.type = .radial
+                hubMask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+                hubMask.locations = [0, 0.85, 1]
+                hubMask.startPoint = CGPoint(x: 0.5, y: 0.5)
+                hubMask.endPoint = CGPoint(x: 1, y: 1)
+                hubMask.frame = hub.bounds
+                hub.layer?.mask = hubMask
                 host = hubContent
                 hc = NSPoint(x: lensR, y: lensR)
             } else {
                 hub.isHidden = true
-                hubRim.isHidden = true
                 host = content
                 hc = c
             }
@@ -296,7 +258,6 @@ final class RadialView: NSView {
         } else {
             // 蜂窝：正中是图标，名称改用图标上方的小玻璃标签
             hub.isHidden = true
-            hubRim.isHidden = true
             nameLabel.removeFromSuperview()
             subLabel.removeFromSuperview()
             nameTag.style = .regular
