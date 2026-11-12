@@ -17,9 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dot.onDragStart = { [weak self] in self?.launcher.close() }
         if !UserDefaults.standard.bool(forKey: "dotHidden") { dot.show() }
 
-        hotkey.onPress = { [weak self] in self?.launcher.show(anchor: .mouse) }
-        hotkey.onRelease = { [weak self] in self?.launcher.hotkeyReleased() }
-        hotkey.onCancel = { [weak self] in self?.launcher.close() }
+        hotkey.onTap = { [weak self] in
+            guard let self else { return }
+            if self.launcher.isVisible { self.launcher.close() } else { self.launcher.show(anchor: .mouse) }
+        }
         hotkey.start()
 
         setupStatusItem()
@@ -46,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem.target = self
         menu.addItem(withTitle: "辅助功能权限…（⌥⌘ 快捷键需要）", action: #selector(openAXSettings), keyEquivalent: "").target = self
         menu.addItem(.separator())
-        let hint = NSMenuItem(title: "按住 ⌥⌘ 呼出，移到图标上松开即打开", action: nil, keyEquivalent: "")
+        let hint = NSMenuItem(title: "按一下 ⌥⌘ 打开 / 收起面板", action: nil, keyEquivalent: "")
         hint.isEnabled = false
         menu.addItem(hint)
         menu.addItem(.separator())

@@ -132,15 +132,6 @@ final class LauncherController {
         if let m = outsideClickMonitor { NSEvent.removeMonitor(m); outsideClickMonitor = nil }
     }
 
-    /// 快捷键松开：鼠标停在哪个图标上就打开哪个；没停在图标上则面板保持打开，可以再点
-    func hotkeyReleased() {
-        guard panel.isVisible else { return }
-        let p = NSEvent.mouseLocation
-        if let cell = cells.first(where: { panel.convertToScreen($0.convert($0.bounds, to: nil)).contains(p) }) {
-            launch(cell.item)
-        }
-    }
-
     private func launch(_ item: DockItem) {
         close()
         DockReader.open(item)
