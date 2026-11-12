@@ -182,57 +182,66 @@ final class RadialView: NSView {
 
     /// 蜂窝的格子位置（以格子为单位，中心在原点），刚好 `count` 个、没有空位。
     ///
-    /// 按行排：相邻两行差一个图标、都居中，就自然错开半格，形成六边形网格。
-    /// 枚举所有行数和每行个数（相邻行只能 ±1）里总数正好等于 count 的方案，
-    /// 优先选上下镜像的排法；镜像方案是沙漏形或明显更大时，选外接圆最小、凹陷最少的。按离中心由近到远排序，第一个 App 放在最中间。
+    /// 按行排，每行居中；相邻两行一长一短（差 1）时自然错开半格形成六边形网格，
+    /// 长度相同的相邻两行则把后一行错开半格。枚举行数和每行个数（相邻行差 -1/0/+1），要求：
+    /// - 总数正好等于 count；
+    /// - 中间最宽、往上往下逐渐变窄（中心多、四周少）；
+    /// 再按「外接圆小 + 上下镜像 + 两端比中间窄 + 错开的行少」打分选最好的。
+    /// 按离中心由近到远排序，第一个 App 放在最中间。
     private static var honeycombCache: [Int: [CGPoint]] = [:]
 
     static func honeycomb(count n: Int) -> [CGPoint] {
         guard n > 0 else { return [] }
         if let c = honeycombCache[n] { return c }
         let rowStep = sqrt(3.0) / 2
-        func points(_ rows: [Int]) -> [CGPoint] {
+        func layout(_ rows: [Int]) -> (pts: [CGPoint], shifted: Int) {
+            var shifts = [Double](repeating: 0, count: rows.count)
+            func frac(_ v: Double) -> Double { let f = v.truncatingRemainder(dividingBy: 1); return f < 0 ? f + 1 : f }
+            for k in 1..<max(rows.count, 1) where k < rows.count {
+                let prev = frac(Double(rows[k - 1] - 1) / 2 + shifts[k - 1])
+                let cur = frac(Double(rows[k] - 1) / 2)
+                if abs(frac(cur - prev) - 0.5) > 1e-6 { shifts[k] = shifts[k - 1] <= 0 ? 0.5 : -0.5 }
+            }
             var pts: [CGPoint] = []
             for (k, L) in rows.enumerated() {
                 let y = (Double(k) - Double(rows.count - 1) / 2) * rowStep
-                for i in 0..<L { pts.append(CGPoint(x: Double(i) - Double(L - 1) / 2, y: y)) }
+                for i in 0..<L { pts.append(CGPoint(x: Double(i) - Double(L - 1) / 2 + shifts[k], y: y)) }
             }
             let cx = pts.map(\.x).reduce(0, +) / CGFloat(pts.count), cy = pts.map(\.y).reduce(0, +) / CGFloat(pts.count)
-            return pts.map { CGPoint(x: $0.x - cx, y: $0.y - cy) }
+            return (pts.map { CGPoint(x: $0.x - cx, y: $0.y - cy) }, shifts.filter { $0 != 0 }.count)
         }
-        // 「凹进去」的深度：某一行比它上下两侧最长的行都短多少（沙漏形会很深）
-        func dent(_ rows: [Int]) -> Int {
-            guard rows.count >= 3 else { return 0 }
-            return (1..<(rows.count - 1)).map { i in
-                min(rows[..<i].max()!, rows[(i + 1)...].max()!) - rows[i]
-            }.max() ?? 0
+        func unimodal(_ r: [Int]) -> Bool {
+            let p = r.firstIndex(of: r.max()!)!
+            for i in 0..<p where r[i] > r[i + 1] { return false }
+            for i in p..<(r.count - 1) where r[i] < r[i + 1] { return false }
+            return true
         }
-        var bestMirror: (score: Double, radius: Double, rows: [Int])?
-        var bestAny: (score: Double, radius: Double, rows: [Int]) = (.infinity, .infinity, [n])
-        for rowCount in 1...9 {
+        var best: (score: Double, rows: [Int]) = (.infinity, [n])
+        let minRows = n >= 3 ? 3 : 1
+        for rowCount in minRows...9 {
+            var steps = [Int](repeating: -1, count: rowCount - 1)
             for start in 1...9 {
-                for mask in 0..<(1 << (rowCount - 1)) {
+                // 枚举每一步 -1/0/+1（三进制计数）
+                let combos = Int(pow(3.0, Double(rowCount - 1)))
+                for code in 0..<combos {
+                    var c = code
+                    for i in 0..<(rowCount - 1) { steps[i] = c % 3 - 1; c /= 3 }
                     var rows = [start]
                     var ok = true
-                    for b in 0..<(rowCount - 1) {
-                        let next = rows[rows.count - 1] + ((mask >> b) & 1 == 1 ? 1 : -1)
-                        if next < 1 { ok = false; break }
-                        rows.append(next)
-                    }
-                    guard ok, rows.reduce(0, +) == n else { continue }
-                    let radius = points(rows).map { Double(hypot($0.x, $0.y)) }.max() ?? 0
+                    for st in steps { let nx = rows[rows.count - 1] + st; if nx < 1 { ok = false; break }; rows.append(nx) }
+                    guard ok, rows.reduce(0, +) == n, unimodal(rows) else { continue }
+                    let (pts, shifted) = layout(rows)
+                    let radius = pts.map { Double(hypot($0.x, $0.y)) }.max() ?? 0
                     let asym = (0..<rows.count).reduce(0) { $0 + abs(rows[$1] - rows[rows.count - 1 - $1]) }
-                    let score = radius + 0.35 * Double(max(0, dent(rows) - 1)) + 0.04 * Double(asym)
-                    if score < bestAny.score { bestAny = (score, radius, rows) }
-                    if rows == rows.reversed(), score < (bestMirror?.score ?? .infinity) { bestMirror = (score, radius, rows) }
+                    let top = rows.max()!
+                    let noTaper = (rows.first == top || rows.last == top) && rows.count > 1 ? 0.45 : 0
+                    let score = radius + 0.15 * Double(asym) + 0.05 * Double(shifted) + noTaper
+                    if score < best.score { best = (score, rows) }
                 }
             }
         }
-        // 优先用上下镜像的排法（左右本来就对称）；只有镜像方案是沙漏形或明显更大时才退回最紧凑的
-        var rows = bestAny.rows
-        if let m = bestMirror, dent(m.rows) <= 1, m.radius <= bestAny.radius + 0.35 { rows = m.rows }
         // 由近到远；距离相同时从正上方开始顺时针
-        let sorted = points(rows).sorted { a, b in
+        let sorted = layout(best.rows).pts.sorted { a, b in
             let da = hypot(a.x, a.y), db = hypot(b.x, b.y)
             if abs(da - db) > 0.01 { return da < db }
             func ang(_ p: CGPoint) -> CGFloat { let t = atan2(p.x, p.y); return t < 0 ? t + 2 * .pi : t }
