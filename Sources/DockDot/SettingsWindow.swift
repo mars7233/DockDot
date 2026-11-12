@@ -93,10 +93,9 @@ struct AppearanceTab: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Toggle("着色", isOn: $settings.tintEnabled)
-                    ColorPicker("着色颜色", selection: Binding(
-                        get: { Color(nsColor: settings.tintColor) },
-                        set: { settings.tintColor = NSColor($0) }), supportsOpacity: false)
+                    TintPalette(color: $settings.tintColor)
                         .disabled(!settings.tintEnabled)
+                        .opacity(settings.tintEnabled ? 1 : 0.4)
                     SliderRow(title: "着色强度", value: $settings.tintAlpha, range: 0...0.6) { "\(Int($0 * 100))%" }
                         .disabled(!settings.tintEnabled)
                     Toggle("悬停 / 按下时玻璃有反应", isOn: $settings.interactive)
@@ -106,7 +105,7 @@ struct AppearanceTab: View {
                     SliderRow(title: "图标离边缘", value: $settings.edgeMargin, range: 16...64, step: 1) { "\(Int($0)) pt" }
                 }
                 Section("细节") {
-                    Toggle("圆心镜片", isOn: $settings.showCenterLens)
+                    Toggle("圆心玻璃（让中间文字更清楚）", isOn: $settings.showCenterLens)
                     SliderRow(title: "选中光晕", value: $settings.highlightStrength, range: 0...0.3) { "\(Int($0 * 100))%" }
                     Toggle("运行中的小点", isOn: $settings.showRunningDots)
                 }
@@ -149,6 +148,95 @@ struct SliderRow: View {
                 Slider(value: $value, in: range)
             }
         }
+    }
+}
+
+/// 内置调色盘：常用色块 + 色相条 + 明暗，不弹系统颜色窗口
+struct TintPalette: View {
+    @Binding var color: NSColor
+
+    private static let presets: [NSColor] = [
+        .black, NSColor(white: 0.5, alpha: 1), .white,
+        NSColor(srgbRed: 0.20, green: 0.48, blue: 1.00, alpha: 1),   // 蓝
+        NSColor(srgbRed: 0.35, green: 0.34, blue: 0.84, alpha: 1),   // 靛
+        NSColor(srgbRed: 0.69, green: 0.32, blue: 0.87, alpha: 1),   // 紫
+        NSColor(srgbRed: 1.00, green: 0.18, blue: 0.47, alpha: 1),   // 粉
+        NSColor(srgbRed: 1.00, green: 0.27, blue: 0.23, alpha: 1),   // 红
+        NSColor(srgbRed: 1.00, green: 0.58, blue: 0.00, alpha: 1),   // 橙
+        NSColor(srgbRed: 1.00, green: 0.80, blue: 0.00, alpha: 1),   // 黄
+        NSColor(srgbRed: 0.20, green: 0.78, blue: 0.35, alpha: 1),   // 绿
+        NSColor(srgbRed: 0.19, green: 0.69, blue: 0.78, alpha: 1),   // 青
+    ]
+
+    private var hsb: (h: CGFloat, s: CGFloat, b: CGFloat) {
+        let c = color.usingColorSpace(.sRGB) ?? .black
+        return (c.hueComponent, c.saturationComponent, c.brightnessComponent)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("着色颜色")
+                Spacer()
+                Circle().fill(Color(nsColor: color)).frame(width: 18, height: 18)
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.2), lineWidth: 1))
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 10) {
+                ForEach(Array(Self.presets.enumerated()), id: \.offset) { _, p in
+                    let selected = Self.same(p, color)
+                    Circle().fill(Color(nsColor: p)).frame(width: 22, height: 22)
+                        .overlay(Circle().strokeBorder(Color.primary.opacity(0.18), lineWidth: 1))
+                        .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: 2).padding(-3).opacity(selected ? 1 : 0))
+                        .contentShape(Circle())
+                        .onTapGesture { color = p }
+                }
+            }
+            HueBar(hue: Binding(
+                get: { Double(hsb.h) },
+                set: { h in
+                    // 从黑白灰拖到色相条时给一个合适的饱和度和亮度
+                    let s = hsb.s < 0.15 ? 0.75 : hsb.s
+                    let b = hsb.b < 0.2 ? 0.9 : hsb.b
+                    color = NSColor(hue: CGFloat(h), saturation: s, brightness: b, alpha: 1)
+                }))
+            HStack(spacing: 8) {
+                Text("明暗").font(.caption).foregroundStyle(.secondary)
+                Slider(value: Binding(
+                    get: { Double(hsb.b) },
+                    set: { color = NSColor(hue: hsb.h, saturation: hsb.s, brightness: CGFloat($0), alpha: 1) }),
+                       in: 0...1)
+            }
+        }
+    }
+
+    private static func same(_ a: NSColor, _ b: NSColor) -> Bool {
+        guard let x = a.usingColorSpace(.sRGB), let y = b.usingColorSpace(.sRGB) else { return false }
+        return abs(x.redComponent - y.redComponent) < 0.01 && abs(x.greenComponent - y.greenComponent) < 0.01
+            && abs(x.blueComponent - y.blueComponent) < 0.01
+    }
+}
+
+/// 彩虹色相条，拖动/点击选色相
+struct HueBar: View {
+    @Binding var hue: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                Capsule().fill(LinearGradient(
+                    colors: stride(from: 0.0, through: 1.0, by: 1.0 / 12).map { Color(hue: $0, saturation: 0.8, brightness: 0.95) },
+                    startPoint: .leading, endPoint: .trailing))
+                Circle().fill(.white).frame(width: 16, height: 16)
+                    .shadow(color: .black.opacity(0.3), radius: 1.5, y: 0.5)
+                    .offset(x: CGFloat(hue) * (w - 16))
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { v in
+                hue = min(max(Double((v.location.x - 8) / (w - 16)), 0), 1)
+            })
+        }
+        .frame(height: 16)
     }
 }
 

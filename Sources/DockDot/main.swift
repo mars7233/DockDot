@@ -10,6 +10,15 @@ if CommandLine.arguments.contains("--dump") {
     exit(0)
 }
 
+// `DockDot --where` 只打印点击每个运行中 App 时会怎么切换（不实际切换），用于排查多屏/多桌面
+if CommandLine.arguments.contains("--where") {
+    let (pinned, running) = DockReader.items()
+    for it in (pinned + running) where it.isRunning {
+        if let app = DockReader.runningApp(for: it) { print("\(it.name): \(SpaceFocus.decide(for: app))") }
+    }
+    exit(0)
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

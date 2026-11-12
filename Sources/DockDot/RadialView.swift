@@ -15,18 +15,6 @@ private final class HighlightView: NSView {
     }
 }
 
-/// 圆心的「镜片」：几乎看不出的一点填充 + 极细的高光边，参考 dok 的做法
-private final class CenterLens: NSView {
-    override func draw(_ dirtyRect: NSRect) {
-        let p = NSBezierPath(ovalIn: bounds.insetBy(dx: 0.5, dy: 0.5))
-        NSColor.labelColor.withAlphaComponent(0.025).setFill()
-        p.fill()
-        NSColor.white.withAlphaComponent(0.22).setStroke()
-        p.lineWidth = 0.6
-        p.stroke()
-    }
-}
-
 /// 运行中的小点
 private final class DotMark: NSView {
     override func draw(_ dirtyRect: NSRect) {
@@ -62,6 +50,8 @@ final class RadialView: NSView {
     private var radii: [CGFloat] = []
     private var R: CGFloat = 0
     private let disc = NSGlassEffectView()
+    private let hub = NSGlassEffectView()      // 圆心的小块常规玻璃
+    private let hubContent = NSView()
     private let content = NSView()
     private let highlight = HighlightView()
     private let nameLabel = NSTextField(labelWithString: "")
@@ -91,10 +81,8 @@ final class RadialView: NSView {
         iconSize = CGFloat(s.iconSize)
         highlight.strength = CGFloat(s.highlightStrength)
 
-        // nil = 固定 App 和「未固定但在运行」的 App 之间空一格，相当于 Dock 上的分隔线
-        var entries: [DockItem?] = pinned
-        if !pinned.isEmpty && !running.isEmpty { entries.append(nil) }
-        entries += running
+        // 所有图标等间距排成一圈（未固定但在运行的 App 接在固定 App 后面，不再空格分隔）
+        let entries: [DockItem?] = pinned + running
 
         var rings: [[DockItem?]]
         if entries.count <= maxSingleRing {
@@ -155,23 +143,43 @@ final class RadialView: NSView {
             }
         }
 
-        let lensR = min(max(radii[0] - 50, 66), radii[0] - iconSize / 2 - 14)
-        let w = lensR * 2 - 20
+        // 圆心：一小块「常规」液态玻璃，文字放在它里面。
+        // 常规玻璃会把背后的文字模糊掉，并按背景明暗自动选深色/浅色字，文字背景上也看得清；
+        // 外圈仍是透明玻璃。关掉「圆心镜片」时文字直接放在外圈玻璃上。
+        let lensR = min(80, radii[0] - iconSize / 2 - 14)
+        let w = lensR * 2 - 18
+        let host: NSView
+        let hc: NSPoint
         if s.showCenterLens {
-            content.addSubview(CenterLens(frame: circle(c, lensR)), positioned: .below, relativeTo: highlight)
+            hub.frame = circle(c, lensR)
+            hub.cornerRadius = lensR
+            hub.style = .regular
+            hub.tintColor = nil
+            hubContent.subviews.forEach { $0.removeFromSuperview() }
+            hubContent.frame = hub.bounds
+            hub.contentView = hubContent
+            if hub.superview == nil { addSubview(hub, positioned: .above, relativeTo: disc) }
+            hub.isHidden = false
+            host = hubContent
+            hc = NSPoint(x: lensR, y: lensR)
+        } else {
+            hub.isHidden = true
+            host = content
+            hc = c
         }
         for l in [nameLabel, subLabel] {
+            l.removeFromSuperview()
             l.alignment = .center
             l.lineBreakMode = .byTruncatingTail
             l.shadow = nil
-            content.addSubview(l)
+            host.addSubview(l)
         }
         nameLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         nameLabel.textColor = .labelColor
         subLabel.font = .systemFont(ofSize: 12)
         subLabel.textColor = .secondaryLabelColor
-        nameLabel.frame = NSRect(x: c.x - w / 2, y: c.y - 1, width: w, height: 21)
-        subLabel.frame = NSRect(x: c.x - w / 2, y: c.y - 21, width: w, height: 16)
+        nameLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 1, width: w, height: 21)
+        subLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 21, width: w, height: 16)
         updateCenter()
         return size
     }
@@ -255,10 +263,8 @@ final class RadialView: NSView {
             return t
         }
         let candidates = slots.indices.filter { slots[$0].ring == ring }
-        guard let best = candidates.min(by: { diff(slots[$0].angle) < diff(slots[$1].angle) }) else { return nil }
-        // 指向分隔空位时不选
-        let perSlot = step / radii[ring]
-        return diff(slots[best].angle) <= perSlot * 0.6 ? best : nil
+        // 图标等间距、没有空位，指向哪个方向就选离它最近的图标
+        return candidates.min(by: { diff(slots[$0].angle) < diff(slots[$1].angle) })
     }
 
     override func mouseMoved(with event: NSEvent) { selected = slot(at: convert(event.locationInWindow, from: nil)) }

@@ -62,10 +62,17 @@ enum DockReader {
 
     /// 和点 Dock 图标一样：没开就启动，开着就切过去（最小化的窗口也会恢复）
     static func open(_ item: DockItem) {
+        // 窗口在别的屏幕/别的桌面上时，直接切到那个窗口所在的桌面
+        if let app = runningApp(for: item), SpaceFocus.focusIfOnOtherSpace(app) { return }
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.activates = true
         NSWorkspace.shared.openApplication(at: item.url, configuration: cfg) { _, err in
             if let err { NSLog("DockDot: 打开 \(item.name) 失败: \(err)") }
         }
+    }
+
+    static func runningApp(for item: DockItem) -> NSRunningApplication? {
+        let k = key(item.url)
+        return NSWorkspace.shared.runningApplications.first { $0.bundleURL.map(key) == k }
     }
 }

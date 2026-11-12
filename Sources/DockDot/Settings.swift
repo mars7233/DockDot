@@ -15,15 +15,15 @@ final class AppSettings: ObservableObject {
     // 液态玻璃
     @Published var glassStyle: GlassStyle = .clear { didSet { save() } }
     @Published var tintEnabled = true { didSet { save() } }
-    @Published var tintColor: NSColor = .white { didSet { save() } }
-    @Published var tintAlpha: Double = 0.15 { didSet { save() } }
+    @Published var tintColor: NSColor = .black { didSet { save() } }
+    @Published var tintAlpha: Double = 0.11 { didSet { save() } }
     @Published var interactive = true { didSet { save() } }
     // 布局
-    @Published var iconSize: Double = 48 { didSet { save() } }
-    @Published var edgeMargin: Double = 36 { didSet { save() } }
+    @Published var iconSize: Double = 64 { didSet { save() } }
+    @Published var edgeMargin: Double = 22 { didSet { save() } }
     // 细节
     @Published var showCenterLens = true { didSet { save() } }
-    @Published var highlightStrength: Double = 0.10 { didSet { save() } }
+    @Published var highlightStrength: Double = 0.21 { didSet { save() } }
     @Published var showRunningDots = true { didSet { save() } }
     // 小圆点
     @Published var dotVisible = true { didSet { save() } }
@@ -62,7 +62,7 @@ final class AppSettings: ObservableObject {
         d.set(glassStyle.rawValue, forKey: "glassStyle")
         d.removeObject(forKey: "glassTint")
         d.set(tintEnabled, forKey: "tintEnabled")
-        let c = tintColor.usingColorSpace(.sRGB) ?? .white
+        let c = tintColor.usingColorSpace(.sRGB) ?? .black
         d.set([Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent)], forKey: "tintRGB")
         d.set(tintAlpha, forKey: "glassTintAlpha")
         d.set(interactive, forKey: "interactive")
@@ -81,13 +81,13 @@ final class AppSettings: ObservableObject {
         loading = true
         glassStyle = .clear
         tintEnabled = true
-        tintColor = .white
-        tintAlpha = 0.15
+        tintColor = .black
+        tintAlpha = 0.11
         interactive = true
-        iconSize = 48
-        edgeMargin = 36
+        iconSize = 64
+        edgeMargin = 22
         showCenterLens = true
-        highlightStrength = 0.10
+        highlightStrength = 0.21
         showRunningDots = true
         dotIdleAlpha = 0.45
         loading = false
