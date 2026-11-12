@@ -110,12 +110,12 @@ final class RadialView: NSView {
                 places.append((NSPoint(x: ringRadius * cos(a), y: ringRadius * sin(a)), 0, a, 1))
             }
         } else {
-            let hex = Self.hexSpiral(count: items.count)
             var maxEdge: CGFloat = iconSize / 2
-            for h in hex {
-                let scale = max(0.72, 1 - 0.08 * CGFloat(h.ring))       // 越往外越小
-                let p = NSPoint(x: cell * (CGFloat(h.q) + CGFloat(h.r) / 2), y: cell * CGFloat(h.r) * sqrt(3) / 2)
-                places.append((p, h.ring, atan2(p.y, p.x), scale))
+            for u in Self.honeycomb(count: items.count) {
+                let d = hypot(u.x, u.y)                               // 以格子为单位的离中心距离
+                let scale = max(0.72, 1 - 0.08 * d)                   // 越往外越小
+                let p = NSPoint(x: cell * u.x, y: cell * u.y)
+                places.append((p, Int(d.rounded()), atan2(p.y, p.x), scale))
                 maxEdge = max(maxEdge, hypot(p.x, p.y) + iconSize * scale / 2)
             }
             R = maxEdge + m
@@ -180,22 +180,55 @@ final class RadialView: NSView {
         return size
     }
 
-    /// 六边形网格的螺旋顺序：先正中，再一圈圈往外（每圈从左上开始顺时针）
-    private static func hexSpiral(count: Int) -> [(q: Int, r: Int, ring: Int)] {
-        var out: [(Int, Int, Int)] = [(0, 0, 0)]
-        let dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
-        var k = 1
-        while out.count < count {
-            var q = -k, r = k                     // 这一圈的起点：左上
-            for d in dirs {
-                for _ in 0..<k where out.count < count {
-                    out.append((q, r, k))
-                    q += d.0; r += d.1
+    /// 蜂窝的格子位置（以格子为单位，中心在原点），刚好 `count` 个、没有空位。
+    ///
+    /// 按行排：相邻两行差一个图标、都居中，就自然错开半格，形成六边形网格。
+    /// 枚举所有行数和每行个数（相邻行只能 ±1）里总数正好等于 count 的方案，
+    /// 选外接圆最小、最对称、最少「中间凹进去」的那个。按离中心由近到远排序，第一个 App 放在最中间。
+    private static var honeycombCache: [Int: [CGPoint]] = [:]
+
+    static func honeycomb(count n: Int) -> [CGPoint] {
+        guard n > 0 else { return [] }
+        if let c = honeycombCache[n] { return c }
+        let rowStep = sqrt(3.0) / 2
+        func points(_ rows: [Int]) -> [CGPoint] {
+            var pts: [CGPoint] = []
+            for (k, L) in rows.enumerated() {
+                let y = (Double(k) - Double(rows.count - 1) / 2) * rowStep
+                for i in 0..<L { pts.append(CGPoint(x: Double(i) - Double(L - 1) / 2, y: y)) }
+            }
+            let cx = pts.map(\.x).reduce(0, +) / CGFloat(pts.count), cy = pts.map(\.y).reduce(0, +) / CGFloat(pts.count)
+            return pts.map { CGPoint(x: $0.x - cx, y: $0.y - cy) }
+        }
+        var best: (score: Double, rows: [Int]) = (.infinity, [n])
+        for rowCount in 1...9 {
+            for start in 1...9 {
+                for mask in 0..<(1 << (rowCount - 1)) {
+                    var rows = [start]
+                    var ok = true
+                    for b in 0..<(rowCount - 1) {
+                        let next = rows[rows.count - 1] + ((mask >> b) & 1 == 1 ? 1 : -1)
+                        if next < 1 { ok = false; break }
+                        rows.append(next)
+                    }
+                    guard ok, rows.reduce(0, +) == n else { continue }
+                    let radius = points(rows).map { Double(hypot($0.x, $0.y)) }.max() ?? 0
+                    let asym = (0..<rows.count).reduce(0) { $0 + abs(rows[$1] - rows[rows.count - 1 - $1]) }
+                    let valleys = rows.count < 3 ? 0 : (1..<(rows.count - 1)).filter { rows[$0] < rows[$0 - 1] && rows[$0] < rows[$0 + 1] }.count
+                    let score = radius + 0.04 * Double(asym) + 0.12 * Double(valleys)
+                    if score < best.score { best = (score, rows) }
                 }
             }
-            k += 1
         }
-        return Array(out.prefix(count)).map { (q: $0.0, r: $0.1, ring: $0.2) }
+        // 由近到远；距离相同时从正上方开始顺时针
+        let sorted = points(best.rows).sorted { a, b in
+            let da = hypot(a.x, a.y), db = hypot(b.x, b.y)
+            if abs(da - db) > 0.01 { return da < db }
+            func ang(_ p: CGPoint) -> CGFloat { let t = atan2(p.x, p.y); return t < 0 ? t + 2 * .pi : t }
+            return ang(a) < ang(b)
+        }
+        honeycombCache[n] = sorted
+        return sorted
     }
 
     /// 每块玻璃和它的参数：外圈、圆心各自用设置里的扭曲程度
