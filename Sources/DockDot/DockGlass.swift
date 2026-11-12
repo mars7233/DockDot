@@ -28,6 +28,27 @@ enum DockGlass {
         return true
     }
 
+    /// 用私有的 `_setPath:` 给玻璃设任意形状（视图坐标，y 向上）；nil 恢复成普通圆角矩形
+    @discardableResult
+    static func setShape(_ glass: NSGlassEffectView, _ path: CGPath?) -> Bool {
+        let sel = NSSelectorFromString("_setPath:")
+        guard glass.responds(to: sel), let imp = glass.method(for: sel) else { return false }
+        typealias SetPath = @convention(c) (AnyObject, Selector, CGPath?) -> Void
+        unsafeBitCast(imp, to: SetPath.self)(glass, sel, path)
+        return true
+    }
+
+    /// 圆环路径：内圈反方向绘制，非零填充规则下中间被挖空
+    static func ringPath(center c: CGPoint, outer: CGFloat, inner: CGFloat) -> CGPath {
+        let p = CGMutablePath()
+        p.addArc(center: c, radius: outer, startAngle: 0, endAngle: 2 * .pi, clockwise: false)
+        p.closeSubpath()
+        p.move(to: CGPoint(x: c.x + inner, y: c.y))
+        p.addArc(center: c, radius: inner, startAngle: 0, endAngle: -2 * .pi, clockwise: true)
+        p.closeSubpath()
+        return p
+    }
+
     /// 让玻璃按窗口当前（被我们强制为激活的）状态重新取样
     static func refreshActiveState(_ glass: NSGlassEffectView) {
         let sel = NSSelectorFromString("_windowChangedKeyState")

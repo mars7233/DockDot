@@ -292,6 +292,14 @@ struct AppearancePane: View {
                 }
 
                 Section(L("布局", "Layout")) {
+                    LabeledContent(L("形状", "Shape")) {
+                        Picker(L("形状", "Shape"), selection: $settings.discShape) {
+                            ForEach(AppSettings.DiscShape.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
                     ValueSlider(title: L("图标大小", "Icon size"), value: $settings.iconSize, range: 36...64, step: 1) { "\(Int($0)) pt" }
                     ValueSlider(title: L("图标与边缘的距离", "Distance from edge"), value: $settings.edgeMargin, range: 16...64, step: 1) { "\(Int($0)) pt" }
                 }

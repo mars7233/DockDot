@@ -26,6 +26,12 @@ final class AppSettings: ObservableObject {
     @Published var tintAlpha: Double = 0.11 { didSet { save() } }
     @Published var interactive = true { didSet { save() } }
     // 布局
+    enum DiscShape: String, CaseIterable, Identifiable {
+        case ring, disc
+        var id: String { rawValue }
+        var title: String { self == .ring ? L("圆环", "Ring") : L("圆盘", "Disc") }
+    }
+    @Published var discShape: DiscShape = .ring { didSet { save() } }
     @Published var iconSize: Double = 64 { didSet { save() } }
     @Published var edgeMargin: Double = 22 { didSet { save() } }
     // 细节
@@ -57,6 +63,7 @@ final class AppSettings: ObservableObject {
         }
         if let v = d.object(forKey: "glassTintAlpha") as? Double { tintAlpha = v }
         if d.object(forKey: "interactive") != nil { interactive = d.bool(forKey: "interactive") }
+        if let s = d.string(forKey: "discShape"), let v = DiscShape(rawValue: s) { discShape = v }
         if let v = d.object(forKey: "iconSize") as? Double { iconSize = v }
         if let v = d.object(forKey: "edgeMargin") as? Double { edgeMargin = v }
         if d.object(forKey: "showCenterLens") != nil { showCenterLens = d.bool(forKey: "showCenterLens") }
@@ -75,6 +82,7 @@ final class AppSettings: ObservableObject {
         d.set([Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent)], forKey: "tintRGB")
         d.set(tintAlpha, forKey: "glassTintAlpha")
         d.set(interactive, forKey: "interactive")
+        d.set(discShape.rawValue, forKey: "discShape")
         d.set(iconSize, forKey: "iconSize")
         d.set(edgeMargin, forKey: "edgeMargin")
         d.set(showCenterLens, forKey: "showCenterLens")
@@ -94,6 +102,7 @@ final class AppSettings: ObservableObject {
         tintColor = .black
         tintAlpha = 0.11
         interactive = true
+        discShape = .ring
         iconSize = 64
         edgeMargin = 22
         showCenterLens = true

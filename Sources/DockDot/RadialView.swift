@@ -114,6 +114,14 @@ final class RadialView: NSView {
         disc.style = s.glassStyle == .regular ? .regular : .clear
         if s.glassStyle == .dock { DockGlass.applyDockMaterial(disc) }
         disc.tintColor = s.effectiveTint
+        // 形状：圆环只在图标那一圈放玻璃（内外两条边都有液态玻璃的折射和高光），中间留空；
+        // 圆盘是一整块。图标多、圆盘变大时，圆环不会有一大片没内容的平玻璃
+        if s.discShape == .ring {
+            let inner = max(20, radii[0] - iconSize / 2 - CGFloat(s.edgeMargin))
+            DockGlass.setShape(disc, DockGlass.ringPath(center: c, outer: R, inner: inner))
+        } else {
+            DockGlass.setShape(disc, nil)
+        }
         disc.clipsToBounds = false
         if #available(macOS 27.0, *) {
             disc.effectIsInteractive = s.interactive // 鼠标悬停/按下时玻璃本身会有反应
@@ -151,7 +159,8 @@ final class RadialView: NSView {
         // 圆心：一小块「常规」液态玻璃，文字放在它里面。
         // 常规玻璃会把背后的文字模糊掉，并按背景明暗自动选深色/浅色字，文字背景上也看得清；
         // 外圈仍是透明玻璃。关掉「圆心镜片」时文字直接放在外圈玻璃上。
-        let lensR = min(80, radii[0] - iconSize / 2 - 14)
+        let ringInner = radii[0] - iconSize / 2 - CGFloat(s.edgeMargin)
+        let lensR = s.discShape == .ring ? min(80, ringInner - 16) : min(80, radii[0] - iconSize / 2 - 14)
         let w = lensR * 2 - 18
         let host: NSView
         let hc: NSPoint
