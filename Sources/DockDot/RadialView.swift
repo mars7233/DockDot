@@ -187,7 +187,8 @@ final class RadialView: NSView {
     /// - 总数正好等于 count；
     /// - 中间最宽、往上往下逐渐变窄（中心多、四周少）；
     /// 再按「外接圆小 + 上下镜像 + 两端比中间窄 + 错开的行少」打分选最好的。
-    /// 按离中心由近到远排序，第一个 App 放在最中间。
+    /// 优先用完美对称的排法；差一个时用多一格的完美对称排法、空出正中间（而不是在边上留空）。
+    /// 按离中心由近到远排序。
     private static var honeycombCache: [Int: [CGPoint]] = [:]
 
     static func honeycomb(count n: Int) -> [CGPoint] {
@@ -216,6 +217,44 @@ final class RadialView: NSView {
             for i in p..<(r.count - 1) where r[i] < r[i + 1] { return false }
             return true
         }
+        // 完美对称的蜂窝：奇数行、上下镜像、中间最宽、相邻行差 1（如 3-4-5-4-3）
+        func perfectSymmetric(_ total: Int) -> [Int]? {
+            var found: (radius: Double, rows: [Int])?
+            for half in 1...4 {                        // 中间行上面有几行
+                for middle in 2...12 {
+                    let side = (1...half).map { middle - $0 }.reversed()
+                    guard side.allSatisfy({ $0 >= 1 }) else { continue }
+                    let rows = Array(side) + [middle] + Array(side.reversed())
+                    guard rows.reduce(0, +) == total else { continue }
+                    let radius = layout(rows).pts.map { Double(hypot($0.x, $0.y)) }.max() ?? 0
+                    if radius < (found?.radius ?? .infinity) { found = (radius, rows) }
+                }
+            }
+            return found?.rows
+        }
+        func finish(_ pts: [CGPoint]) -> [CGPoint] {
+            // 由近到远；距离相同时从正上方开始顺时针
+            let sorted = pts.sorted { a, b in
+                let da = hypot(a.x, a.y), db = hypot(b.x, b.y)
+                if abs(da - db) > 0.01 { return da < db }
+                func ang(_ p: CGPoint) -> CGFloat { let t = atan2(p.x, p.y); return t < 0 ? t + 2 * .pi : t }
+                return ang(a) < ang(b)
+            }
+            honeycombCache[n] = sorted
+            return sorted
+        }
+        // 1. 正好有完美对称的排法
+        if n >= 7, let rows = perfectSymmetric(n) { return finish(layout(rows).pts) }
+        // 2. 差一个：用多一格的完美对称排法，把正中间那格空出来（不在边上留空）
+        if n >= 6, let rows = perfectSymmetric(n + 1) {
+            let pts = layout(rows).pts
+            if let c = pts.firstIndex(where: { hypot($0.x, $0.y) < 0.01 }) {
+                var rest = pts
+                rest.remove(at: c)
+                return finish(rest)
+            }
+        }
+        // 3. 其他数量：中间最宽、往外变窄，尽量上下镜像
         var best: (score: Double, rows: [Int]) = (.infinity, [n])
         let minRows = n >= 3 ? 3 : 1
         for rowCount in minRows...9 {
@@ -240,15 +279,7 @@ final class RadialView: NSView {
                 }
             }
         }
-        // 由近到远；距离相同时从正上方开始顺时针
-        let sorted = layout(best.rows).pts.sorted { a, b in
-            let da = hypot(a.x, a.y), db = hypot(b.x, b.y)
-            if abs(da - db) > 0.01 { return da < db }
-            func ang(_ p: CGPoint) -> CGFloat { let t = atan2(p.x, p.y); return t < 0 ? t + 2 * .pi : t }
-            return ang(a) < ang(b)
-        }
-        honeycombCache[n] = sorted
-        return sorted
+        return finish(layout(best.rows).pts)
     }
 
     /// 每块玻璃和它的参数：外圈、圆心各自用设置里的扭曲程度
