@@ -219,9 +219,10 @@ final class RadialView: NSView {
             if s.showCenterLens {
                 hub.frame = circle(NSPoint(x: origin.x + c.x, y: origin.y + c.y), lensR)
                 hub.cornerRadius = lensR
-                hub.style = .regular
-                if s.glassStyle == .dock { DockGlass.applyDockMaterial(hub) }
-                hub.tintColor = nil
+                // 圆心玻璃的样式和着色独立于外圈
+                hub.style = s.centerStyle == .regular ? .regular : .clear
+                if s.centerStyle == .dock { DockGlass.applyDockMaterial(hub) }
+                hub.tintColor = s.centerEffectiveTint
                 hubContent.subviews.forEach { $0.removeFromSuperview() }
                 hubContent.frame = hub.bounds
                 hub.contentView = hubContent

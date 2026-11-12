@@ -229,9 +229,17 @@ struct AppearancePane: View {
     @ObservedObject var settings: AppSettings
     @State private var background: PreviewBackground = .lightDoc
     private let allApps: [DockItem] = { let r = DockReader.items(); return r.pinned + r.running }()
-    /// 只有「一圈」并且打开了圆心玻璃时，才有圆心那块玻璃
-    private var hasCenterGlass: Bool {
-        settings.resolvedLayout(appCount: allApps.count) == .ring && settings.showCenterLens
+    /// 实际在用「一圈」排列（只有一圈才有圆心玻璃）
+    private var usesSingleRing: Bool {
+        settings.resolvedLayout(appCount: allApps.count) == .ring
+    }
+
+    private func styleNote(_ style: AppSettings.GlassStyle) -> String {
+        switch style {
+        case .dock: return L("程序坞：和系统程序坞相同的材质，固定样式，不着色。", "Dock: the system Dock’s material; a fixed style without tint.")
+        case .clear: return L("透明：能看到背后的内容；背景较杂时可以加一点着色。", "Clear: see-through; add a little tint on busy backgrounds.")
+        case .regular: return L("常规：系统按背景自动调整明暗和模糊，更稳但偏白。", "Regular: adapts brightness and blur to the background; steadier but whiter.")
+        }
     }
 
     /// 预览用的 App：实际会用蜂窝时显示全部，用一圈时取前 10 个（放得进预览框）
@@ -269,53 +277,7 @@ struct AppearancePane: View {
                 .padding(.top, 18)
 
                 Form {
-                Section {
-                    LabeledContent(L("样式", "Style")) {
-                        Picker(L("样式", "Style"), selection: $settings.glassStyle) {
-                            ForEach(AppSettings.GlassStyle.allCases) { Text($0.title).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .fixedSize()
-                    }
-                    // 程序坞是固定样式，不提供着色和反馈这些调整
-                    if settings.glassStyle != .dock {
-                        Toggle(L("着色", "Tint"), isOn: $settings.tintEnabled)
-                        if settings.tintEnabled {
-                            LabeledContent(L("颜色", "Color")) { SwatchRow(color: $settings.tintColor) }
-                            LabeledContent(L("自定义颜色", "Custom color")) { HueBar(color: $settings.tintColor).frame(width: 266) }
-                            ValueSlider(title: L("着色强度", "Tint strength"), value: $settings.tintAlpha, range: 0...0.6) { "\(Int($0 * 100))%" }
-                        }
-                        Toggle(L("悬停和按下时玻璃有反馈", "Glass responds to hover and press"), isOn: $settings.interactive)
-                    }
-                } header: {
-                    Text(L("液态玻璃", "Liquid Glass"))
-                } footer: {
-                    Footnote({
-                        switch settings.glassStyle {
-                        case .dock: return L("程序坞：和系统程序坞完全相同的液态玻璃材质，是一种固定样式，没有额外的调整项。",
-                                             "Dock: exactly the same Liquid Glass material as the system Dock — a fixed style with no further adjustments.")
-                        case .clear: return L("透明：和桌面小组件一样能看到背后的内容。背景比较杂时，可以加一点着色让图标更清楚。",
-                                              "Clear: see-through, like desktop widgets. On busy backgrounds, a little tint keeps icons clear.")
-                        case .regular: return L("常规：系统根据背后的内容自动调整明暗和模糊，更稳定，但会偏白、没那么通透。",
-                                                "Regular: the system adapts brightness and blur to what’s behind — steadier, but whiter and less see-through.")
-                        }
-                    }())
-                }
-
-                Section {
-                    ValueSlider(title: L("外圈扭曲程度", "Outer glass distortion"), value: $settings.outerDistortion, range: 0...1) { "\(Int(($0 * 100).rounded()))%" }
-                    if hasCenterGlass {
-                        ValueSlider(title: L("圆心扭曲程度", "Center glass distortion"), value: $settings.centerDistortion, range: 0...1) { "\(Int(($0 * 100).rounded()))%" }
-                        ValueSlider(title: L("圆心边缘羽化", "Center glass edge feather"), value: $settings.centerFeather, range: 0...0.6) { "\(Int(($0 * 100).rounded()))%" }
-                    }
-                } header: {
-                    Text(L("玻璃扭曲", "Glass Distortion"))
-                } footer: {
-                    Footnote(L("扭曲程度决定玻璃边缘把背后的内容弯得多厉害：外圈默认 5%，和系统程序坞一致；圆心默认 50%。边缘羽化让圆心玻璃最外一圈逐渐淡出，不出现边线：默认 15%，0% 是硬边，越大越柔和但透镜效果越弱。",
-                               "Distortion is how strongly the glass edge bends what’s behind it: the outer glass defaults to 5%, matching the system Dock; the center glass to 50%. Edge feather fades out the center glass’s outer band so no edge line shows: 15% by default, 0% is a hard edge; higher is softer but weakens the lens."))
-                }
-
+                // 1. 布局：整体形状
                 Section {
                     LabeledContent(L("排列方式", "Arrangement")) {
                         Picker(L("排列方式", "Arrangement"), selection: $settings.layoutMode) {
@@ -352,15 +314,47 @@ struct AppearancePane: View {
                                "Single ring: icons around a circle, on a full disc or on a ring of glass. Honeycomb: like the Apple Watch app grid, more compact with many apps. Automatic switches between them by the number of apps."))
                 }
 
+                // 2. 外圈玻璃：放图标的那块
                 Section {
-                    Toggle(L("圆心玻璃", "Center glass"), isOn: $settings.showCenterLens)
+                    GlassStyleRows(style: $settings.glassStyle, tintEnabled: $settings.tintEnabled,
+                                   tintColor: $settings.tintColor, tintAlpha: $settings.tintAlpha)
+                    if settings.glassStyle != .dock {
+                        Toggle(L("悬停和按下时玻璃有反馈", "Glass responds to hover and press"), isOn: $settings.interactive)
+                    }
+                    ValueSlider(title: L("扭曲程度", "Distortion"), value: $settings.outerDistortion, range: 0...1) { "\(Int(($0 * 100).rounded()))%" }
+                } header: {
+                    Text(L("外圈玻璃", "Outer Glass"))
+                } footer: {
+                    Footnote(styleNote(settings.glassStyle) + L(" 扭曲程度决定玻璃边缘把背后的内容弯得多厉害，默认 5% 和系统程序坞一致。",
+                                                                  " Distortion is how strongly the edge bends what’s behind it; 5% (default) matches the system Dock."))
+                }
+
+                // 3. 圆心玻璃：只有「一圈」排列才有
+                if usesSingleRing {
+                    Section {
+                        Toggle(L("显示圆心玻璃", "Show center glass"), isOn: $settings.showCenterLens)
+                        if settings.showCenterLens {
+                            GlassStyleRows(style: $settings.centerStyle, tintEnabled: $settings.centerTintEnabled,
+                                           tintColor: $settings.centerTintColor, tintAlpha: $settings.centerTintAlpha)
+                            ValueSlider(title: L("扭曲程度", "Distortion"), value: $settings.centerDistortion, range: 0...1) { "\(Int(($0 * 100).rounded()))%" }
+                            ValueSlider(title: L("边缘羽化", "Edge feather"), value: $settings.centerFeather, range: 0...0.6) { "\(Int(($0 * 100).rounded()))%" }
+                        }
+                    } header: {
+                        Text(L("圆心玻璃", "Center Glass"))
+                    } footer: {
+                        Footnote(settings.showCenterLens
+                            ? styleNote(settings.centerStyle) + L(" 边缘羽化让圆心最外一圈逐渐淡出、不出现边线：0% 是硬边，越大越柔和但透镜效果越弱。",
+                                                                  " Edge feather fades out the outer band so no edge line shows: 0% is a hard edge; higher is softer but weakens the lens.")
+                            : L("关掉后，App 名称直接显示在外圈玻璃上。", "When off, the app name sits directly on the outer glass."))
+                    }
+                }
+
+                // 4. 图标与选中
+                Section {
                     ValueSlider(title: L("选中光晕", "Selection glow"), value: $settings.highlightStrength, range: 0...0.3) { "\(Int($0 * 100))%" }
                     Toggle(L("显示运行中的小点", "Show running indicators"), isOn: $settings.showRunningDots)
                 } header: {
-                    Text(L("细节", "Details"))
-                } footer: {
-                    Footnote(L("圆心玻璃会把背后的内容模糊掉，让中间的 App 名称在任何背景上都看得清。",
-                               "The center glass blurs what’s behind it so the app name stays readable on any background."))
+                    Text(L("图标与选中", "Icons & Selection"))
                 }
 
                 Section {
@@ -371,6 +365,34 @@ struct AppearancePane: View {
                 }
                 }
                 .formStyle(.grouped)
+            }
+        }
+    }
+}
+
+/// 一块玻璃的「样式 + 着色」设置行；程序坞样式不显示着色
+@available(macOS 26.0, *)
+struct GlassStyleRows: View {
+    @Binding var style: AppSettings.GlassStyle
+    @Binding var tintEnabled: Bool
+    @Binding var tintColor: NSColor
+    @Binding var tintAlpha: Double
+
+    var body: some View {
+        LabeledContent(L("样式", "Style")) {
+            Picker(L("样式", "Style"), selection: $style) {
+                ForEach(AppSettings.GlassStyle.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+        }
+        if style != .dock {
+            Toggle(L("着色", "Tint"), isOn: $tintEnabled)
+            if tintEnabled {
+                LabeledContent(L("颜色", "Color")) { SwatchRow(color: $tintColor) }
+                LabeledContent(L("自定义颜色", "Custom color")) { HueBar(color: $tintColor).frame(width: 266) }
+                ValueSlider(title: L("着色强度", "Tint strength"), value: $tintAlpha, range: 0...0.6) { "\(Int($0 * 100))%" }
             }
         }
     }

@@ -108,10 +108,10 @@ The ◎ menu bar icon has: Open Panel, Show/Hide Dot, Settings… (⌘,), Quit.
 
 | Group | Options |
 |---|---|
-| Liquid Glass | Style (Dock / Clear / Regular). Dock is a fixed style identical to the system Dock, with no further adjustments; Clear and Regular offer tint on/off, tint color (built-in palette), tint strength and glass feedback on hover / press |
-| Layout | Arrangement (Automatic / Single ring / Honeycomb): a single ring of icons, or a honeycomb like the Apple Watch app grid — a hexagonal grid with smaller icons toward the edge, more compact with many apps; Automatic switches to honeycomb above a set number of apps (14 by default). Ring style (Ring / Disc): the ring puts glass only in the band around the icons, leaving the middle open. Plus icon size (36–64 pt) and distance from the glass edge |
-| Glass Distortion | Outer and center glass distortion (0–100%): how strongly each glass edge bends what's behind it. Outer defaults to 5%, matching the system Dock; center defaults to 50%. Center glass edge feather (0–60%, default 15%) fades out the center glass's outer band so no edge line shows; 0% is a hard edge |
-| Details | Center glass (keeps the label readable), selection glow strength, running indicators |
+| Layout | Arrangement (Automatic / Single ring / Honeycomb): a single ring of icons, or a honeycomb like the Apple Watch app grid — a hexagonal grid with smaller icons toward the edge, more compact with many apps; Automatic switches to honeycomb above a set number of apps (14 by default). Ring style (Ring / Disc), icon size (36–64 pt), distance from the glass edge |
+| Outer Glass | Style (Dock / Clear / Regular; Dock is a fixed style identical to the system Dock, without tint), tint on/off / color (built-in palette) / strength, feedback on hover and press, distortion (5% by default, matching the system Dock) |
+| Center Glass | Single-ring arrangement only: show or hide, its own style, tint, distortion (50% by default), edge feather (15% by default, fades out the outer band so no edge line shows) |
+| Icons & Selection | Selection glow strength, running indicators |
 
 Defaults: Dock style (the system Dock's own material), 64 pt icons, 22 pt from the edge, 21% selection glow. "Restore Default Appearance" brings them back.
 

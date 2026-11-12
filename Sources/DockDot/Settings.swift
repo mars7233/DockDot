@@ -52,6 +52,11 @@ final class AppSettings: ObservableObject {
     // 玻璃扭曲程度（0…1）：外圈默认和系统 Dock 一样；圆心默认是设置里对比过的方案 4
     @Published var outerDistortion: Double = 0.05 { didSet { save() } }
     @Published var centerDistortion: Double = 0.5 { didSet { save() } }
+    // 圆心玻璃：样式和着色独立于外圈
+    @Published var centerStyle: GlassStyle = .clear { didSet { save() } }
+    @Published var centerTintEnabled = false { didSet { save() } }
+    @Published var centerTintColor: NSColor = .white { didSet { save() } }
+    @Published var centerTintAlpha: Double = 0.15 { didSet { save() } }
     /// 圆心玻璃边缘的羽化宽度（占半径的比例，0 = 硬边）
     @Published var centerFeather: Double = 0.15 { didSet { save() } }
     // 细节
@@ -91,6 +96,12 @@ final class AppSettings: ObservableObject {
         if let v = d.object(forKey: "outerDistortion") as? Double { outerDistortion = v }
         if let v = d.object(forKey: "centerDistortion") as? Double { centerDistortion = v }
         if let v = d.object(forKey: "centerFeather") as? Double { centerFeather = v }
+        if let s = d.string(forKey: "centerStyle"), let g = GlassStyle(rawValue: s) { centerStyle = g }
+        if d.object(forKey: "centerTintEnabled") != nil { centerTintEnabled = d.bool(forKey: "centerTintEnabled") }
+        if let c = d.array(forKey: "centerTintRGB") as? [Double], c.count == 3 {
+            centerTintColor = NSColor(srgbRed: c[0], green: c[1], blue: c[2], alpha: 1)
+        }
+        if let v = d.object(forKey: "centerTintAlpha") as? Double { centerTintAlpha = v }
         if d.object(forKey: "showCenterLens") != nil { showCenterLens = d.bool(forKey: "showCenterLens") }
         if let v = d.object(forKey: "highlightStrength") as? Double { highlightStrength = v }
         if d.object(forKey: "showRunningDots") != nil { showRunningDots = d.bool(forKey: "showRunningDots") }
@@ -115,6 +126,11 @@ final class AppSettings: ObservableObject {
         d.set(outerDistortion, forKey: "outerDistortion")
         d.set(centerDistortion, forKey: "centerDistortion")
         d.set(centerFeather, forKey: "centerFeather")
+        d.set(centerStyle.rawValue, forKey: "centerStyle")
+        d.set(centerTintEnabled, forKey: "centerTintEnabled")
+        let cc = centerTintColor.usingColorSpace(.sRGB) ?? .white
+        d.set([Double(cc.redComponent), Double(cc.greenComponent), Double(cc.blueComponent)], forKey: "centerTintRGB")
+        d.set(centerTintAlpha, forKey: "centerTintAlpha")
         d.set(showCenterLens, forKey: "showCenterLens")
         d.set(highlightStrength, forKey: "highlightStrength")
         d.set(showRunningDots, forKey: "showRunningDots")
@@ -140,6 +156,10 @@ final class AppSettings: ObservableObject {
         outerDistortion = 0.05
         centerDistortion = 0.5
         centerFeather = 0.15
+        centerStyle = .clear
+        centerTintEnabled = false
+        centerTintColor = .white
+        centerTintAlpha = 0.15
         showCenterLens = true
         highlightStrength = 0.21
         showRunningDots = true
@@ -161,6 +181,12 @@ final class AppSettings: ObservableObject {
     var effectiveTint: NSColor? {
         guard glassStyle != .dock else { return nil }
         return tintEnabled && tintAlpha > 0 ? tintColor.withAlphaComponent(tintAlpha) : nil
+    }
+
+    /// 圆心玻璃实际用的着色（程序坞样式同样不着色）
+    var centerEffectiveTint: NSColor? {
+        guard centerStyle != .dock else { return nil }
+        return centerTintEnabled && centerTintAlpha > 0 ? centerTintColor.withAlphaComponent(centerTintAlpha) : nil
     }
 
     /// 玻璃对悬停/按下的反馈：程序坞样式不用（系统 Dock 本身没有这种反馈）
