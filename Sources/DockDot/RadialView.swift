@@ -113,8 +113,18 @@ final class RadialView: NSView {
         disc.cornerRadius = R
         // 原生 regular 液态玻璃、不加着色：系统会按背后内容自动调节明暗和模糊，
         // 浅色/文字多的背景上也不会一团乱。不裁剪，让系统自己画边缘。
-        disc.style = .regular
-        disc.tintColor = nil
+        // 可用 defaults 微调（不用重新编译）：
+        //   defaults write local.dockdot glassStyle clear|regular
+        //   defaults write local.dockdot glassTint white|black|none
+        //   defaults write local.dockdot glassTintAlpha 0.15
+        let d = UserDefaults.standard
+        disc.style = d.string(forKey: "glassStyle") == "regular" ? .regular : .clear
+        let tintAlpha = d.object(forKey: "glassTintAlpha") as? Double ?? 0.15
+        switch d.string(forKey: "glassTint") ?? "white" {
+        case "black": disc.tintColor = NSColor.black.withAlphaComponent(tintAlpha)
+        case "none": disc.tintColor = nil
+        default: disc.tintColor = NSColor.white.withAlphaComponent(tintAlpha)
+        }
         disc.clipsToBounds = false
         if #available(macOS 27.0, *) {
             disc.effectIsInteractive = true // 鼠标悬停/按下时玻璃本身会有反应
