@@ -109,7 +109,7 @@ The ◎ menu bar icon has: Open Panel, Show/Hide Dot, Settings… (⌘,), Quit.
 | Group | Options |
 |---|---|
 | Liquid Glass | Style (Dock / Clear / Regular), tint on/off, tint color (built-in palette), tint strength, glass reacts to hover / press |
-| Layout | Shape (Ring / Disc), icon size (36–64 pt), distance from the glass edge. The ring puts glass only in the band around the icons, leaving the middle open, so many apps don't leave a large flat stretch of glass |
+| Layout | Arrangement (Automatic / Single ring / Honeycomb): a single ring of icons, or a honeycomb like the Apple Watch app grid — a hexagonal grid with smaller icons toward the edge, more compact with many apps; Automatic switches to honeycomb above a set number of apps (14 by default). Ring style (Ring / Disc): the ring puts glass only in the band around the icons, leaving the middle open. Plus icon size (36–64 pt) and distance from the glass edge |
 | Details | Center glass (keeps the label readable), selection glow strength, running indicators |
 
 Defaults: Dock style (the system Dock's own material), no tint, 64 pt icons, 22 pt from the edge, 21% selection glow. "Restore Default Appearance" brings them back.

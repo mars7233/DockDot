@@ -228,7 +228,11 @@ enum PreviewBackground: String, CaseIterable, Identifiable {
 struct AppearancePane: View {
     @ObservedObject var settings: AppSettings
     @State private var background: PreviewBackground = .lightDoc
-    private let sample: [DockItem] = Array(DockReader.items().pinned.prefix(10))
+    private let allApps: [DockItem] = { let r = DockReader.items(); return r.pinned + r.running }()
+    /// 预览用的 App：实际会用蜂窝时显示全部，用一圈时取前 10 个（放得进预览框）
+    private var sample: [DockItem] {
+        settings.resolvedLayout(appCount: allApps.count) == .grid ? allApps : Array(allApps.prefix(10))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -251,8 +255,8 @@ struct AppearancePane: View {
                                 .help(kind.title)
                         }
                     }
-                    Footnote(L("预览用的是 Dock 里的前 10 个 App，鼠标移到预览上可以试试选中效果。",
-                               "The preview uses the first 10 apps in your Dock. Hover over it to try the selection effect."))
+                    Footnote(L("预览使用你 Dock 里的 App（一圈时只显示前 10 个）。鼠标移到预览上可以试试选中效果。",
+                               "The preview uses the apps in your Dock (the first 10 for a single ring). Hover over it to try the selection effect."))
                     Spacer(minLength: 0)
                 }
                 .frame(width: 420)
@@ -291,17 +295,40 @@ struct AppearancePane: View {
                     }())
                 }
 
-                Section(L("布局", "Layout")) {
-                    LabeledContent(L("形状", "Shape")) {
-                        Picker(L("形状", "Shape"), selection: $settings.discShape) {
-                            ForEach(AppSettings.DiscShape.allCases) { Text($0.title).tag($0) }
+                Section {
+                    LabeledContent(L("排列方式", "Arrangement")) {
+                        Picker(L("排列方式", "Arrangement"), selection: $settings.layoutMode) {
+                            ForEach(AppSettings.LayoutMode.allCases) { Text($0.title).tag($0) }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
                         .fixedSize()
                     }
+                    if settings.layoutMode == .auto {
+                        LabeledContent(L("改用蜂窝", "Switch to honeycomb")) {
+                            Stepper(value: $settings.gridThreshold, in: 6...40) {
+                                Text(L("超过 \(settings.gridThreshold) 个 App 时", "Above \(settings.gridThreshold) apps"))
+                                    .monospacedDigit().foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    if settings.layoutMode != .grid {
+                        LabeledContent(L("一圈的样式", "Ring style")) {
+                            Picker(L("一圈的样式", "Ring style"), selection: $settings.discShape) {
+                                ForEach(AppSettings.DiscShape.allCases) { Text($0.title).tag($0) }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .fixedSize()
+                        }
+                    }
                     ValueSlider(title: L("图标大小", "Icon size"), value: $settings.iconSize, range: 36...64, step: 1) { "\(Int($0)) pt" }
                     ValueSlider(title: L("图标与边缘的距离", "Distance from edge"), value: $settings.edgeMargin, range: 16...64, step: 1) { "\(Int($0)) pt" }
+                } header: {
+                    Text(L("布局", "Layout"))
+                } footer: {
+                    Footnote(L("一圈：图标沿圆排一圈，可以选整块圆盘或只在图标那一圈放玻璃的圆环。蜂窝：像 Apple Watch 的应用页，App 多时更紧凑。「自动」会按 App 数量在两者之间切换。",
+                               "Single ring: icons around a circle, on a full disc or on a ring of glass. Honeycomb: like the Apple Watch app grid, more compact with many apps. Automatic switches between them by the number of apps."))
                 }
 
                 Section {

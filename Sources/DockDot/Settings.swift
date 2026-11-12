@@ -32,6 +32,21 @@ final class AppSettings: ObservableObject {
         var title: String { self == .ring ? L("圆环", "Ring") : L("圆盘", "Disc") }
     }
     @Published var discShape: DiscShape = .ring { didSet { save() } }
+    /// 排列方式：自动（App 少用一圈，多了用蜂窝）、强制一圈、强制蜂窝
+    enum LayoutMode: String, CaseIterable, Identifiable {
+        case auto, ring, grid
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .auto: L("自动", "Automatic")
+            case .ring: L("一圈", "Single ring")
+            case .grid: L("蜂窝", "Honeycomb")
+            }
+        }
+    }
+    @Published var layoutMode: LayoutMode = .auto { didSet { save() } }
+    /// 自动模式下，App 超过这个数量就改用蜂窝
+    @Published var gridThreshold: Int = 14 { didSet { save() } }
     @Published var iconSize: Double = 64 { didSet { save() } }
     @Published var edgeMargin: Double = 22 { didSet { save() } }
     // 细节
@@ -64,6 +79,8 @@ final class AppSettings: ObservableObject {
         if let v = d.object(forKey: "glassTintAlpha") as? Double { tintAlpha = v }
         if d.object(forKey: "interactive") != nil { interactive = d.bool(forKey: "interactive") }
         if let s = d.string(forKey: "discShape"), let v = DiscShape(rawValue: s) { discShape = v }
+        if let s = d.string(forKey: "layoutMode"), let v = LayoutMode(rawValue: s) { layoutMode = v }
+        if d.object(forKey: "gridThreshold") != nil { gridThreshold = d.integer(forKey: "gridThreshold") }
         if let v = d.object(forKey: "iconSize") as? Double { iconSize = v }
         if let v = d.object(forKey: "edgeMargin") as? Double { edgeMargin = v }
         if d.object(forKey: "showCenterLens") != nil { showCenterLens = d.bool(forKey: "showCenterLens") }
@@ -83,6 +100,8 @@ final class AppSettings: ObservableObject {
         d.set(tintAlpha, forKey: "glassTintAlpha")
         d.set(interactive, forKey: "interactive")
         d.set(discShape.rawValue, forKey: "discShape")
+        d.set(layoutMode.rawValue, forKey: "layoutMode")
+        d.set(gridThreshold, forKey: "gridThreshold")
         d.set(iconSize, forKey: "iconSize")
         d.set(edgeMargin, forKey: "edgeMargin")
         d.set(showCenterLens, forKey: "showCenterLens")
@@ -103,6 +122,8 @@ final class AppSettings: ObservableObject {
         tintAlpha = 0.11
         interactive = true
         discShape = .ring
+        layoutMode = .auto
+        gridThreshold = 14
         iconSize = 64
         edgeMargin = 22
         showCenterLens = true
@@ -111,6 +132,14 @@ final class AppSettings: ObservableObject {
         dotIdleAlpha = 0.45
         loading = false
         save()
+    }
+
+    /// 按 App 数量算出实际用哪种排列
+    func resolvedLayout(appCount n: Int) -> LayoutMode {
+        switch layoutMode {
+        case .auto: n > gridThreshold ? .grid : .ring
+        default: layoutMode
+        }
     }
 
     /// 实际给玻璃用的着色
