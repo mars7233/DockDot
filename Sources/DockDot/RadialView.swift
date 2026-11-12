@@ -1,30 +1,35 @@
 import AppKit
 import QuartzCore
 
-/// 选中时在图标后面的柔和光圈（颜色在 draw 里取，随玻璃的深浅自动适配）
+// 颜色都在 draw 里取系统动态色：玻璃会按背后的明暗自动切换深/浅外观，
+// 文字和小点跟着变（浅背景深字、深背景浅字），不用自己加阴影或暗底。
+
+/// 选中时图标后面的柔光：中间淡、边缘渐隐，没有描边
 private final class HighlightView: NSView {
     override func draw(_ dirtyRect: NSRect) {
-        let p = NSBezierPath(ovalIn: bounds.insetBy(dx: 1, dy: 1))
-        NSColor.white.withAlphaComponent(0.22).setFill()
-        p.fill()
-        NSColor.white.withAlphaComponent(0.45).setStroke()
-        p.lineWidth = 1
-        p.stroke()
+        let g = NSGradient(colors: [NSColor.labelColor.withAlphaComponent(0.10),
+                                    NSColor.labelColor.withAlphaComponent(0.06),
+                                    NSColor.labelColor.withAlphaComponent(0)])
+        g?.draw(in: NSBezierPath(ovalIn: bounds), relativeCenterPosition: .zero)
     }
 }
 
-/// 圆心文字后面一团很淡的暗光（只在中间，往外渐隐），让白字在亮背景上也看得清
-private final class CenterDim: NSView {
+/// 圆心的「镜片」：几乎看不出的一点填充 + 极细的高光边，参考 dok 的做法
+private final class CenterLens: NSView {
     override func draw(_ dirtyRect: NSRect) {
-        let g = NSGradient(colors: [NSColor.black.withAlphaComponent(0.32), NSColor.black.withAlphaComponent(0)])
-        g?.draw(in: NSBezierPath(ovalIn: bounds), relativeCenterPosition: .zero)
+        let p = NSBezierPath(ovalIn: bounds.insetBy(dx: 0.5, dy: 0.5))
+        NSColor.labelColor.withAlphaComponent(0.025).setFill()
+        p.fill()
+        NSColor.white.withAlphaComponent(0.22).setStroke()
+        p.lineWidth = 0.6
+        p.stroke()
     }
 }
 
 /// 运行中的小点
 private final class DotMark: NSView {
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.white.withAlphaComponent(0.9).setFill()
+        NSColor.labelColor.withAlphaComponent(0.8).setFill()
         NSBezierPath(ovalIn: bounds).fill()
     }
 }
@@ -98,16 +103,19 @@ final class RadialView: NSView {
             radii.append(r)
         }
         if entries.isEmpty { radii = [118] }
-        R = (radii.last ?? 118) + iconSize / 2 + 24
+        // 图标离玻璃边缘留足距离，边缘的折射高光不会压在图标底下
+        R = (radii.last ?? 118) + iconSize / 2 + 36
         let size = NSSize(width: R * 2, height: R * 2)
         frame = NSRect(origin: .zero, size: size)
         let c = NSPoint(x: R, y: R)
 
         disc.frame = bounds
         disc.cornerRadius = R
-        // 和桌面小组件一样的「透明」液态玻璃：不加磨砂着色，只有折射和边缘高光
-        disc.style = .clear
+        // 原生 regular 液态玻璃、不加着色：系统会按背后内容自动调节明暗和模糊，
+        // 浅色/文字多的背景上也不会一团乱。不裁剪，让系统自己画边缘。
+        disc.style = .regular
         disc.tintColor = nil
+        disc.clipsToBounds = false
         if #available(macOS 27.0, *) {
             disc.effectIsInteractive = true // 鼠标悬停/按下时玻璃本身会有反应
         }
@@ -141,24 +149,19 @@ final class RadialView: NSView {
             }
         }
 
-        let w = max(120, (radii[0] - iconSize / 2 - 22) * 2)
-        content.addSubview(CenterDim(frame: circle(c, w * 0.62)))
+        let lensR = min(max(radii[0] - 50, 66), radii[0] - iconSize / 2 - 14)
+        let w = lensR * 2 - 20
+        content.addSubview(CenterLens(frame: circle(c, lensR)), positioned: .below, relativeTo: highlight)
         for l in [nameLabel, subLabel] {
             l.alignment = .center
             l.lineBreakMode = .byTruncatingTail
+            l.shadow = nil
             content.addSubview(l)
         }
-        // 透明玻璃上和桌面小组件一样用白字 + 柔和阴影，深浅背景都看得清
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
-        shadow.shadowBlurRadius = 4
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        nameLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        nameLabel.textColor = .white
-        subLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        subLabel.textColor = NSColor.white.withAlphaComponent(0.8)
-        nameLabel.shadow = shadow
-        subLabel.shadow = shadow
+        nameLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        nameLabel.textColor = .labelColor
+        subLabel.font = .systemFont(ofSize: 12)
+        subLabel.textColor = .secondaryLabelColor
         nameLabel.frame = NSRect(x: c.x - w / 2, y: c.y - 1, width: w, height: 21)
         subLabel.frame = NSRect(x: c.x - w / 2, y: c.y - 21, width: w, height: 16)
         updateCenter()
@@ -188,7 +191,7 @@ final class RadialView: NSView {
             NSAnimationContext.runAnimationGroup { $0.duration = 0.12; highlight.animator().alphaValue = 0 }
             return
         }
-        let target = circle(slots[s].center, iconSize / 2 + 11)
+        let target = circle(slots[s].center, iconSize / 2 + 18)
         if old == nil || highlight.alphaValue == 0 {
             highlight.frame = target
             NSAnimationContext.runAnimationGroup { $0.duration = 0.12; highlight.animator().alphaValue = 1 }
