@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.start()
 
         setupStatusItem()
+        setupMainMenu()
         if CommandLine.arguments.contains("--settings") || CommandLine.arguments.contains("--settings-tab") { SettingsWindowController.shared.show() }
 
         // 快捷键需要辅助功能权限；没授权时只弹一次系统提示，小圆点照常可用
@@ -59,6 +60,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.delegate = self
         statusItem.menu = menu
     }
+
+    /// 打开设置时 App 会临时变成普通 App，这时菜单栏里显示这套菜单
+    private func setupMainMenu() {
+        let main = NSMenu()
+        func sub(_ title: String, _ items: [NSMenuItem]) {
+            let holder = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let m = NSMenu(title: title)
+            items.forEach(m.addItem)
+            holder.submenu = m
+            main.addItem(holder)
+        }
+        func item(_ t: String, _ a: Selector?, _ k: String, _ target: AnyObject? = nil, mods: NSEvent.ModifierFlags = .command) -> NSMenuItem {
+            let i = NSMenuItem(title: t, action: a, keyEquivalent: k)
+            i.keyEquivalentModifierMask = mods
+            i.target = target
+            return i
+        }
+        sub("DockDot", [
+            item(L("关于 DockDot", "About DockDot"), #selector(openAbout), "", self),
+            .separator(),
+            item(L("设置…", "Settings…"), #selector(openSettings), ",", self),
+            .separator(),
+            item(L("隐藏 DockDot", "Hide DockDot"), #selector(NSApplication.hide(_:)), "h"),
+            item(L("退出 DockDot", "Quit DockDot"), #selector(NSApplication.terminate(_:)), "q"),
+        ])
+        sub(L("编辑", "Edit"), [
+            item(L("撤销", "Undo"), Selector(("undo:")), "z"),
+            item(L("重做", "Redo"), Selector(("redo:")), "z", mods: [.command, .shift]),
+            .separator(),
+            item(L("剪切", "Cut"), #selector(NSText.cut(_:)), "x"),
+            item(L("拷贝", "Copy"), #selector(NSText.copy(_:)), "c"),
+            item(L("粘贴", "Paste"), #selector(NSText.paste(_:)), "v"),
+            item(L("全选", "Select All"), #selector(NSText.selectAll(_:)), "a"),
+        ])
+        sub(L("窗口", "Window"), [
+            item(L("最小化", "Minimize"), #selector(NSWindow.performMiniaturize(_:)), "m"),
+            item(L("关闭", "Close"), #selector(NSWindow.performClose(_:)), "w"),
+        ])
+        NSApp.mainMenu = main
+    }
+
+    @objc private func openAbout() { SettingsWindowController.shared.show(pane: .about) }
 
     @objc private func openPanel() { launcher.show(anchor: .mouse) }
     @objc private func toggleDot() { AppSettings.shared.dotVisible.toggle() }

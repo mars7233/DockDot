@@ -43,15 +43,20 @@ DockDot 启动时会先检查环境。如果系统低于 macOS 26，会弹出提
 
 **第一次打开被拦住？** DockDot 没有付费的 Apple 开发者签名，所以 macOS 第一次会提示「无法验证开发者」或「Apple 无法检查其是否包含恶意软件」。处理方法：打开 **系统设置 → 隐私与安全性**，在页面下方找到 DockDot，点「**仍要打开**」。只需要这一次。
 
-### 授权辅助功能
+### 授权系统权限
 
-建议授权「辅助功能」，⌥⌘ 快捷键和跨桌面切换要用到它：
+DockDot 需要两项系统权限（都在 **系统设置 → 隐私与安全性** 里）：
 
-1. 打开 **系统设置 → 隐私与安全性 → 辅助功能**。
+- **输入监控**：识别单按一下 ⌥⌘。
+- **辅助功能**：点图标时把其他屏幕、其他桌面上的窗口带到前面。
+
+授权步骤：
+
+1. 打开 **系统设置 → 隐私与安全性**，分别进入 **辅助功能** 和 **输入监控**。
 2. 打开 DockDot 的开关；如果列表里没有，点「+」，选择「应用程序」里的 DockDot。
 3. 从菜单栏退出 DockDot，再重新打开。
 
-没有授权时，小圆点照样能用，但 ⌥⌘ 快捷键和跨桌面切换可能不起作用或不准确。授权状态和每项用途可以在 **设置 → 权限** 里查看。
+没有授权时，小圆点照样能用，但 ⌥⌘ 快捷键和跨桌面切换可能不起作用。**设置 → 权限** 里逐项列出了每个权限的用途和当前状态，并提供对应的按钮。
 
 > 开关明明打开了、DockDot 却仍显示未授权？这通常是因为那条授权属于签名不同的旧版本。在 **设置 → 权限** 里点「重新授权」，按系统提示重新打开开关即可。
 
@@ -111,7 +116,7 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 
 **通用**：界面语言、显示小圆点、小圆点不用时的透明度、快捷键说明、开机自动启动。
 
-**权限**：辅助功能的授权状态（自动刷新）和用途说明，以及隐私说明（不联网、不收集数据、不需要其他权限）。如果系统设置里开关已打开、这里却显示未授权，说明那条授权属于签名不同的旧版本，点「重新授权」即可。
+**权限**：逐项列出 DockDot 需要的权限（辅助功能、输入监控、登录项）、是否必需、用途和当前状态（自动刷新），以及不使用的权限和隐私说明。如果系统设置里开关已打开、这里却显示未授权，说明那条授权属于签名不同的旧版本，点「重新授权」即可。
 
 **关于**：版本号、版权和许可证，以及到 GitHub 项目主页和反馈问题的链接。
 
@@ -125,7 +130,7 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 | 打开 App | `NSWorkspace.openApplication`，效果和点 Dock 图标一样：没运行就启动，运行中就切过去，最小化的窗口也会恢复 |
 | ⌥⌘ 单按检测 | 全局监听 `flagsChanged`。只有「从 ⌥⌘ 的子集按进来、再松开，期间没有别的按键或鼠标点击、且 0.8 秒内松开」才算一次单按。是否有别的输入，同时用两种方式判断：按键/点击监听，以及系统全局输入计数器（`CGEventSource.counterForEventType`） |
 | 液态玻璃 | 外圈是一块 `NSGlassEffectView`（`.clear` + 着色）；圆心是另一块 `.regular` 玻璃，文字放在它的 `contentView` 里，这样系统会按背景明暗自动选择深色或浅色文字 |
-| 跨桌面切换 | 辅助功能接口只能看到当前正在显示的桌面上的窗口。如果 App 在这些桌面上没有正常的文档窗口（画中画、置顶小窗这类悬浮窗口不算），就从 `CGWindowListCopyWindowInfo`（覆盖所有桌面）里找到它最前面的那个窗口（普通窗口和「置顶」窗口都算，比如视频播放器的置顶模式），再调用 SkyLight 的 `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo` 把这个窗口放到最前，系统会自动切到它所在的桌面。做法参考了 [AltTab](https://github.com/lwouis/alt-tab-macos) |
+| 跨桌面切换 | 辅助功能接口只能看到当前正在显示的桌面上的窗口。如果 App 在这些桌面上没有正常的文档窗口（画中画、置顶小窗这类悬浮窗口不算），就从 `CGWindowListCopyWindowInfo`（覆盖所有桌面）里找到它最前面、且确实在某个桌面上的窗口（普通窗口和「置顶」窗口都算），用 SkyLight 的 `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo` 把它放到最前，再通过远程令牌拿到这个窗口的辅助功能元素执行「提到最前」（参考 [AltTab](https://github.com/lwouis/alt-tab-macos)）。有些 App（比如 PiliPlus 的置顶播放窗口）不支持这一步，系统就不会切桌面；这时 DockDot 会算出目标桌面在那块屏幕上的位置，临时把鼠标移过去，用系统的「向左 / 向右移动一个桌面」快捷键（Ctrl+← / Ctrl+→）切过去，再把鼠标移回来 |
 
 ### 代码结构
 
@@ -168,6 +173,9 @@ open ~/Applications/DockDot.app --args --settings-tab about
 
 # 在 App 自己的进程里检查辅助功能权限，结果写进文件
 open ~/Applications/DockDot.app --args --ax-report /tmp/dockdot-ax.txt
+
+# 走和点图标完全一样的流程打开某个 App，并把切换桌面的每一步写进日志（会真的切换）
+open ~/Applications/DockDot.app --args --open-app pili /tmp/dockdot-open.log
 open ~/Applications/DockDot.app --args --simulate-old-macos
 open ~/Applications/DockDot.app --args --simulate-dmg
 ```

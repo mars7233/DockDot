@@ -43,15 +43,20 @@ If you open DockDot directly from the disk image, it asks you to move it to Appl
 
 **Blocked on first launch?** DockDot isn't signed with a paid Apple Developer ID, so the first time macOS says it "can't verify the developer" or "can't check it for malicious software". To allow it: open **System Settings → Privacy & Security**, scroll down to DockDot and click **Open Anyway**. You only need to do this once.
 
-### Grant Accessibility access
+### Grant system permissions
 
-Accessibility access is recommended — the ⌥⌘ shortcut and switching between Spaces use it:
+DockDot needs two system permissions (both under **System Settings → Privacy & Security**):
 
-1. Open **System Settings → Privacy & Security → Accessibility**.
-2. Turn on DockDot. If it isn't listed, click "+" and choose DockDot in Applications.
+- **Input Monitoring** — recognizes a tap of ⌥⌘.
+- **Accessibility** — brings windows on other displays and Spaces forward when you click an icon.
+
+To grant them:
+
+1. Open **System Settings → Privacy & Security**, then go to **Accessibility** and **Input Monitoring**.
+2. Turn on DockDot in each. If it isn't listed, click "+" and choose DockDot in Applications.
 3. Quit DockDot from the menu bar and open it again.
 
-Without it, the floating dot still works, but the ⌥⌘ shortcut and Space switching may not work or may be less accurate. You can check the status and what each use is for under **Settings → Permissions**.
+Without them, the floating dot still works, but the ⌥⌘ shortcut and Space switching may not work. **Settings → Permissions** lists each permission with what it's for, its current status, and a button to fix it.
 
 > Switch is on but DockDot still says not granted? That entry usually belongs to an older build with a different signature. Click **Re-authorize** under **Settings → Permissions** and turn the switch on again when prompted.
 
@@ -111,7 +116,7 @@ Defaults: clear glass, black tint at 11%, 64 pt icons, 22 pt from the edge, 21% 
 
 **General** — interface language, show the floating dot, its idle opacity, shortcut notes, launch at login.
 
-**Permissions** — Accessibility status (refreshes automatically) and what it's used for, plus privacy notes (no network, no data collection, no other permissions). If the switch is on in System Settings but this page says not granted, that entry belongs to an older build with a different signature — click Re-authorize.
+**Permissions** — lists each permission DockDot uses (Accessibility, Input Monitoring, Login Items), whether it's required, what it's for and its current status (refreshes automatically), plus permissions it doesn't use and privacy notes. If a switch is on in System Settings but this page says not granted, that entry belongs to an older build with a different signature — click Re-authorize.
 
 **About** — version, copyright and license, with links to the GitHub project and issue tracker.
 
@@ -125,7 +130,7 @@ All settings are stored in `~/Library/Preferences/local.dockdot.plist`.
 | Opening apps | `NSWorkspace.openApplication`, which behaves like clicking a Dock icon: launches the app if needed, otherwise switches to it and restores minimized windows |
 | Detecting the ⌥⌘ tap | A global `flagsChanged` monitor. It only counts as a tap if ⌥⌘ is entered from a subset of itself and released within 0.8 s with no other key or click in between. Other input is detected two ways: key/click monitors and the system-wide input counter (`CGEventSource.counterForEventType`) |
 | Liquid Glass | The ring is one `NSGlassEffectView` (`.clear` + tint); the center is a separate `.regular` glass whose `contentView` holds the labels, so the system picks dark or light text based on what's behind |
-| Switching Spaces | The Accessibility API only sees windows on Spaces that are currently showing. If an app has no regular document window there (floating windows such as picture-in-picture or pinned mini players don't count), DockDot finds its frontmost window — regular or stay-on-top, e.g. a video player's pinned mode — in `CGWindowListCopyWindowInfo` (which covers every Space) and brings that window forward with SkyLight's `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo`; macOS then switches to its Space. Based on [AltTab](https://github.com/lwouis/alt-tab-macos)'s approach |
+| Switching Spaces | The Accessibility API only sees windows on Spaces that are currently showing. If an app has no regular document window there (floating windows such as picture-in-picture or pinned mini players don't count), DockDot finds its frontmost window that actually belongs to a Space — regular or stay-on-top — in `CGWindowListCopyWindowInfo` (which covers every Space), brings it forward with SkyLight's `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo`, then gets that window's accessibility element through a remote token and raises it (as [AltTab](https://github.com/lwouis/alt-tab-macos) does). Some apps (e.g. PiliPlus's pinned player) don't support raising, so macOS doesn't switch Spaces; DockDot then works out where the target Space sits on that display, briefly moves the pointer there, presses the system's "Move left / right a space" shortcut (Ctrl+← / Ctrl+→) the right number of times, and moves the pointer back |
 
 ### Project layout
 
@@ -168,6 +173,9 @@ open ~/Applications/DockDot.app --args --settings-tab about
 
 # Check Accessibility access from inside the app's own process; writes the result to a file
 open ~/Applications/DockDot.app --args --ax-report /tmp/dockdot-ax.txt
+
+# Open an app through exactly the same path as clicking its icon, logging each Space-switching step (really switches)
+open ~/Applications/DockDot.app --args --open-app pili /tmp/dockdot-open.log
 open ~/Applications/DockDot.app --args --simulate-old-macos
 open ~/Applications/DockDot.app --args --simulate-dmg
 ```

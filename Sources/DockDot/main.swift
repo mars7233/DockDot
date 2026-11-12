@@ -29,8 +29,28 @@ if let i = CommandLine.arguments.firstIndex(of: "--ax-report"), i + 1 < CommandL
         let err = AXUIElementCopyAttributeValue(AXUIElementCreateApplication(finder.processIdentifier), kAXWindowsAttribute as CFString, &v)
         out += "readFinderWindows=\(err.rawValue) (0 = 能读到，-25211 = 没有权限)\n"
     }
+    out += "inputMonitoring(CGPreflightListenEventAccess)=\(CGPreflightListenEventAccess())\n"
     out += "bundle=\(Bundle.main.bundlePath)\n"
     try? out.write(toFile: CommandLine.arguments[i + 1], atomically: true, encoding: .utf8)
+    exit(0)
+}
+
+// `open DockDot.app --args --open-app <名字> <日志文件>`：走和点图标完全一样的打开流程，并把每一步写进日志
+if #available(macOS 26.0, *), let i = CommandLine.arguments.firstIndex(of: "--open-app"), i + 2 < CommandLine.arguments.count {
+    let name = CommandLine.arguments[i + 1].lowercased()
+    let logPath = CommandLine.arguments[i + 2]
+    SpaceFocus.debugLog = { line in
+        let old = (try? String(contentsOfFile: logPath, encoding: .utf8)) ?? ""
+        try? (old + line + "\n").write(toFile: logPath, atomically: true, encoding: .utf8)
+    }
+    let (pinned, running) = DockReader.items()
+    if let item = (pinned + running).first(where: { $0.name.lowercased().contains(name) }) {
+        SpaceFocus.debugLog?("open \(item.name)")
+        DockReader.open(item)
+    } else {
+        SpaceFocus.debugLog?("not found: \(name)")
+    }
+    RunLoop.main.run(until: Date().addingTimeInterval(3))
     exit(0)
 }
 
