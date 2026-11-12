@@ -5,18 +5,26 @@ import QuartzCore
 private final class HighlightView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let p = NSBezierPath(ovalIn: bounds.insetBy(dx: 1, dy: 1))
-        NSColor.labelColor.withAlphaComponent(0.10).setFill()
+        NSColor.white.withAlphaComponent(0.22).setFill()
         p.fill()
-        NSColor.labelColor.withAlphaComponent(0.14).setStroke()
+        NSColor.white.withAlphaComponent(0.45).setStroke()
         p.lineWidth = 1
         p.stroke()
+    }
+}
+
+/// 圆心文字后面一团很淡的暗光（只在中间，往外渐隐），让白字在亮背景上也看得清
+private final class CenterDim: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        let g = NSGradient(colors: [NSColor.black.withAlphaComponent(0.32), NSColor.black.withAlphaComponent(0)])
+        g?.draw(in: NSBezierPath(ovalIn: bounds), relativeCenterPosition: .zero)
     }
 }
 
 /// 运行中的小点
 private final class DotMark: NSView {
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.secondaryLabelColor.setFill()
+        NSColor.white.withAlphaComponent(0.9).setFill()
         NSBezierPath(ovalIn: bounds).fill()
     }
 }
@@ -97,9 +105,12 @@ final class RadialView: NSView {
 
         disc.frame = bounds
         disc.cornerRadius = R
-        disc.style = .regular
-        // 轻微着色，压住背后杂乱的文字/窗口，保持图标清楚
-        disc.tintColor = NSColor.windowBackgroundColor.withAlphaComponent(0.45)
+        // 和桌面小组件一样的「透明」液态玻璃：不加磨砂着色，只有折射和边缘高光
+        disc.style = .clear
+        disc.tintColor = nil
+        if #available(macOS 27.0, *) {
+            disc.effectIsInteractive = true // 鼠标悬停/按下时玻璃本身会有反应
+        }
         content.frame = disc.bounds
         disc.contentView = content
         if disc.superview == nil { addSubview(disc) }
@@ -131,15 +142,23 @@ final class RadialView: NSView {
         }
 
         let w = max(120, (radii[0] - iconSize / 2 - 22) * 2)
+        content.addSubview(CenterDim(frame: circle(c, w * 0.62)))
         for l in [nameLabel, subLabel] {
             l.alignment = .center
             l.lineBreakMode = .byTruncatingTail
             content.addSubview(l)
         }
+        // 透明玻璃上和桌面小组件一样用白字 + 柔和阴影，深浅背景都看得清
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
+        shadow.shadowBlurRadius = 4
+        shadow.shadowOffset = NSSize(width: 0, height: -1)
         nameLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        nameLabel.textColor = .labelColor
-        subLabel.font = .systemFont(ofSize: 12)
-        subLabel.textColor = .secondaryLabelColor
+        nameLabel.textColor = .white
+        subLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        subLabel.textColor = NSColor.white.withAlphaComponent(0.8)
+        nameLabel.shadow = shadow
+        subLabel.shadow = shadow
         nameLabel.frame = NSRect(x: c.x - w / 2, y: c.y - 1, width: w, height: 21)
         subLabel.frame = NSRect(x: c.x - w / 2, y: c.y - 21, width: w, height: 16)
         updateCenter()
