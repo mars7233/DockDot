@@ -184,7 +184,7 @@ final class RadialView: NSView {
     ///
     /// 按行排：相邻两行差一个图标、都居中，就自然错开半格，形成六边形网格。
     /// 枚举所有行数和每行个数（相邻行只能 ±1）里总数正好等于 count 的方案，
-    /// 选外接圆最小、最对称、最少「中间凹进去」的那个。按离中心由近到远排序，第一个 App 放在最中间。
+    /// 优先选上下镜像的排法；镜像方案是沙漏形或明显更大时，选外接圆最小、凹陷最少的。按离中心由近到远排序，第一个 App 放在最中间。
     private static var honeycombCache: [Int: [CGPoint]] = [:]
 
     static func honeycomb(count n: Int) -> [CGPoint] {
@@ -200,7 +200,15 @@ final class RadialView: NSView {
             let cx = pts.map(\.x).reduce(0, +) / CGFloat(pts.count), cy = pts.map(\.y).reduce(0, +) / CGFloat(pts.count)
             return pts.map { CGPoint(x: $0.x - cx, y: $0.y - cy) }
         }
-        var best: (score: Double, rows: [Int]) = (.infinity, [n])
+        // 「凹进去」的深度：某一行比它上下两侧最长的行都短多少（沙漏形会很深）
+        func dent(_ rows: [Int]) -> Int {
+            guard rows.count >= 3 else { return 0 }
+            return (1..<(rows.count - 1)).map { i in
+                min(rows[..<i].max()!, rows[(i + 1)...].max()!) - rows[i]
+            }.max() ?? 0
+        }
+        var bestMirror: (score: Double, radius: Double, rows: [Int])?
+        var bestAny: (score: Double, radius: Double, rows: [Int]) = (.infinity, .infinity, [n])
         for rowCount in 1...9 {
             for start in 1...9 {
                 for mask in 0..<(1 << (rowCount - 1)) {
@@ -214,14 +222,17 @@ final class RadialView: NSView {
                     guard ok, rows.reduce(0, +) == n else { continue }
                     let radius = points(rows).map { Double(hypot($0.x, $0.y)) }.max() ?? 0
                     let asym = (0..<rows.count).reduce(0) { $0 + abs(rows[$1] - rows[rows.count - 1 - $1]) }
-                    let valleys = rows.count < 3 ? 0 : (1..<(rows.count - 1)).filter { rows[$0] < rows[$0 - 1] && rows[$0] < rows[$0 + 1] }.count
-                    let score = radius + 0.04 * Double(asym) + 0.12 * Double(valleys)
-                    if score < best.score { best = (score, rows) }
+                    let score = radius + 0.35 * Double(max(0, dent(rows) - 1)) + 0.04 * Double(asym)
+                    if score < bestAny.score { bestAny = (score, radius, rows) }
+                    if rows == rows.reversed(), score < (bestMirror?.score ?? .infinity) { bestMirror = (score, radius, rows) }
                 }
             }
         }
+        // 优先用上下镜像的排法（左右本来就对称）；只有镜像方案是沙漏形或明显更大时才退回最紧凑的
+        var rows = bestAny.rows
+        if let m = bestMirror, dent(m.rows) <= 1, m.radius <= bestAny.radius + 0.35 { rows = m.rows }
         // 由近到远；距离相同时从正上方开始顺时针
-        let sorted = points(best.rows).sorted { a, b in
+        let sorted = points(rows).sorted { a, b in
             let da = hypot(a.x, a.y), db = hypot(b.x, b.y)
             if abs(da - db) > 0.01 { return da < db }
             func ang(_ p: CGPoint) -> CGFloat { let t = atan2(p.x, p.y); return t < 0 ? t + 2 * .pi : t }
