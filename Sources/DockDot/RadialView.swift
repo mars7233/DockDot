@@ -132,9 +132,13 @@ final class RadialView: NSView {
         disc.style = s.glassStyle == .regular ? .regular : .clear
         if s.glassStyle == .dock { DockGlass.applyDockMaterial(disc) }
         disc.tintColor = s.effectiveTint
-        // 一圈 + 圆环：只在图标那一圈放玻璃，中间留空；蜂窝和圆盘都是整块
+        // 一圈 + 圆环：只在图标那一圈放玻璃，中间留空；蜂窝是整块。
+        // 一圈 + 圆盘：在圆心玻璃底下挖一个和圆心一样大的洞。玻璃叠在玻璃上时，上面那块会去折射下面那块，
+        // 边缘出现一圈发黑、在高光处断开的线；挖空后圆心直接压在真实背景上。洞和圆心贴合，只留一条边
         if layout == .ring && s.discShape == .ring {
             DockGlass.setShape(disc, DockGlass.ringPath(center: c, outer: R, inner: max(20, ringRadius - iconSize / 2 - m)))
+        } else if layout == .ring && s.showCenterLens {
+            DockGlass.setShape(disc, DockGlass.ringPath(center: c, outer: R, inner: centerLensRadius(s)))
         } else {
             DockGlass.setShape(disc, nil)
         }
@@ -209,13 +213,7 @@ final class RadialView: NSView {
             nameTag.isHidden = true
             // 圆心：一小块玻璃，文字放在它里面；系统会按背景明暗自动选深色/浅色字。
             // 关掉「圆心玻璃」时文字直接放在外圈玻璃上
-            let ringInner = ringRadius - iconSize / 2 - CGFloat(s.edgeMargin)
-            // 圆盘：圆心玻璃随圆盘一起放大，始终离图标留一段固定距离（边距 + 8），
-            //       App 多、圆盘变大时中间不会留出一大片空玻璃；
-            // 圆环：中间本来就是空的，圆心玻璃保持小巧
-            let lensR = s.discShape == .ring
-                ? min(80, ringInner - 16)
-                : max(56, ringRadius - iconSize / 2 - CGFloat(s.edgeMargin) - 8)
+            let lensR = centerLensRadius(s)
             let textScale = min(1.5, max(1, lensR / 90))   // 圆心变大时文字也跟着放大一些
             let w = lensR * 2 - 18 * textScale
             let host: NSView
@@ -269,6 +267,16 @@ final class RadialView: NSView {
             if nameTag.superview == nil { addSubview(nameTag) }
             nameTag.isHidden = true
         }
+    }
+
+    /// 圆心玻璃的半径。
+    /// 圆盘：随圆盘一起放大，始终离图标留一段固定距离（边距 + 8），App 多、圆盘变大时中间不会留出一大片空玻璃；
+    /// 圆环：中间本来就是空的，圆心玻璃保持小巧
+    private func centerLensRadius(_ s: AppSettings) -> CGFloat {
+        let m = CGFloat(s.edgeMargin)
+        return s.discShape == .ring
+            ? min(80, ringRadius - iconSize / 2 - m - 16)
+            : max(56, ringRadius - iconSize / 2 - m - 8)
     }
 
     /// 窗口显示出来之后再做一次（玻璃要在窗口里才会取样激活状态）

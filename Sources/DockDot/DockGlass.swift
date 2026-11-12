@@ -66,6 +66,10 @@ enum DockGlass {
         if strongHighlight {                 // 圆心玻璃：加强边缘高光
             t["inputKeyFillHighlightAmount"] = 1.0
             t["inputKeyFillHighlightHeight"] = 2
+            // 高光默认只在上下各约 120° 的弧上，其余地方露出边缘那条暗线，看起来像一圈没闭合的边框；
+            // 铺满整圈后边缘是一条连续闭合的亮边
+            t["inputKeyFillHighlightSpread"] = Double.pi
+            t["inputKeyFillHighlightSpreadSDR"] = Double.pi
         }
         return t
     }
