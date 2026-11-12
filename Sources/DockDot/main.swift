@@ -21,6 +21,19 @@ if #available(macOS 26.0, *) {
     }
 }
 
+// `open DockDot.app --args --ax-report <文件>`：在 App 自己的进程里检查辅助功能权限，结果写进文件
+if let i = CommandLine.arguments.firstIndex(of: "--ax-report"), i + 1 < CommandLine.arguments.count {
+    var out = "AXIsProcessTrusted=\(AXIsProcessTrusted())\n"
+    if let finder = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.apple.finder" }) {
+        var v: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(AXUIElementCreateApplication(finder.processIdentifier), kAXWindowsAttribute as CFString, &v)
+        out += "readFinderWindows=\(err.rawValue) (0 = 能读到，-25211 = 没有权限)\n"
+    }
+    out += "bundle=\(Bundle.main.bundlePath)\n"
+    try? out.write(toFile: CommandLine.arguments[i + 1], atomically: true, encoding: .utf8)
+    exit(0)
+}
+
 // `DockDot --env-check` 只打印环境检测结果
 if CommandLine.arguments.contains("--env-check") {
     let v = ProcessInfo.processInfo.operatingSystemVersion

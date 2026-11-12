@@ -53,6 +53,8 @@ DockDot 启动时会先检查环境。如果系统低于 macOS 26，会弹出提
 
 没有授权时，小圆点照样能用，但 ⌥⌘ 快捷键和跨桌面切换可能不起作用或不准确。授权状态和每项用途可以在 **设置 → 权限** 里查看。
 
+> 开关明明打开了、DockDot 却仍显示未授权？这通常是因为那条授权属于签名不同的旧版本。在 **设置 → 权限** 里点「重新授权」，按系统提示重新打开开关即可。
+
 ### 推荐：把系统 Dock 设成自动隐藏
 
 ```bash
@@ -109,7 +111,7 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 
 **通用**：界面语言、显示小圆点、小圆点不用时的透明度、快捷键说明、开机自动启动。
 
-**权限**：辅助功能的授权状态和用途说明，以及隐私说明（不联网、不收集数据、不需要其他权限）。
+**权限**：辅助功能的授权状态（自动刷新）和用途说明，以及隐私说明（不联网、不收集数据、不需要其他权限）。如果系统设置里开关已打开、这里却显示未授权，说明那条授权属于签名不同的旧版本，点「重新授权」即可。
 
 **关于**：版本号、版权和许可证，以及到 GitHub 项目主页和反馈问题的链接。
 
@@ -123,7 +125,7 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 | 打开 App | `NSWorkspace.openApplication`，效果和点 Dock 图标一样：没运行就启动，运行中就切过去，最小化的窗口也会恢复 |
 | ⌥⌘ 单按检测 | 全局监听 `flagsChanged`。只有「从 ⌥⌘ 的子集按进来、再松开，期间没有别的按键或鼠标点击、且 0.8 秒内松开」才算一次单按。是否有别的输入，同时用两种方式判断：按键/点击监听，以及系统全局输入计数器（`CGEventSource.counterForEventType`） |
 | 液态玻璃 | 外圈是一块 `NSGlassEffectView`（`.clear` + 着色）；圆心是另一块 `.regular` 玻璃，文字放在它的 `contentView` 里，这样系统会按背景明暗自动选择深色或浅色文字 |
-| 跨桌面切换 | 辅助功能接口只能看到当前正在显示的桌面上的窗口。如果 App 在这些桌面上没有窗口，就从 `CGWindowListCopyWindowInfo`（覆盖所有桌面）里找到它最前面的那个窗口，再调用 SkyLight 的 `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo` 把这个窗口放到最前，系统会自动切到它所在的桌面。做法参考了 [AltTab](https://github.com/lwouis/alt-tab-macos) |
+| 跨桌面切换 | 辅助功能接口只能看到当前正在显示的桌面上的窗口。如果 App 在这些桌面上没有正常的文档窗口（画中画、置顶小窗这类悬浮窗口不算），就从 `CGWindowListCopyWindowInfo`（覆盖所有桌面）里找到它最前面的那个窗口（普通窗口和「置顶」窗口都算，比如视频播放器的置顶模式），再调用 SkyLight 的 `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo` 把这个窗口放到最前，系统会自动切到它所在的桌面。做法参考了 [AltTab](https://github.com/lwouis/alt-tab-macos) |
 
 ### 代码结构
 
@@ -139,7 +141,7 @@ Sources/DockDot/
 ├── DockReader.swift      读取 Dock 内容、打开 App
 ├── SpaceFocus.swift      切到其他桌面上的窗口
 ├── Settings.swift        设置数据（UserDefaults）
-├── SettingsWindow.swift  设置窗口（SwiftUI）：外观、通用、权限、关于
+├── SettingsWindow.swift  设置窗口（SwiftUI，左侧导航）：外观、通用、权限、关于
 └── Lang.swift            中英文切换
 Resources/AppIcon.icns        App 图标（由 scripts/make-icon.swift 生成）
 scripts/make-signing-cert.sh  创建本机自用签名证书
@@ -163,6 +165,9 @@ open ~/Applications/DockDot.app --args --settings-tab about
 
 # 打印环境检测结果；后两个参数在正常的 Mac 上模拟「系统太旧」「从安装盘运行」的提示
 ~/Applications/DockDot.app/Contents/MacOS/DockDot --env-check
+
+# 在 App 自己的进程里检查辅助功能权限，结果写进文件
+open ~/Applications/DockDot.app --args --ax-report /tmp/dockdot-ax.txt
 open ~/Applications/DockDot.app --args --simulate-old-macos
 open ~/Applications/DockDot.app --args --simulate-dmg
 ```

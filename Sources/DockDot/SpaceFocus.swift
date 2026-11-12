@@ -57,7 +57,18 @@ enum SpaceFocus {
                 var m: CFTypeRef?
                 let minimized = AXUIElementCopyAttributeValue(w, kAXMinimizedAttribute as CFString, &m) == .success
                     && (m as? Bool) == true
-                if !minimized { visibleHere = true }
+                // 只有「正常的文档窗口」才算当前桌面上有窗口；悬浮的小窗（画中画、置顶小播放器等）不算，
+                // 否则这类窗口会挡住跨桌面切换
+                var sr: CFTypeRef?
+                let subrole = AXUIElementCopyAttributeValue(w, kAXSubroleAttribute as CFString, &sr) == .success ? sr as? String : nil
+                var sz: CFTypeRef?
+                var size = CGSize.zero
+                if AXUIElementCopyAttributeValue(w, kAXSizeAttribute as CFString, &sz) == .success, let v = sz {
+                    AXValueGetValue(v as! AXValue, .cgSize, &size)
+                }
+                if !minimized, subrole == (kAXStandardWindowSubrole as String), size.width >= 120, size.height >= 80 {
+                    visibleHere = true
+                }
             }
         }
         if visibleHere { return .normal(L("当前显示的桌面上有窗口", "has a window on a visible Space")) }
@@ -67,7 +78,9 @@ enum SpaceFocus {
         // 窗口列表从前到后排列：第一个属于这个 App、又不在当前桌面上的普通窗口，就是它最近用的窗口
         let hit = list.first { w in
             guard (w[kCGWindowOwnerPID as String] as? pid_t) == pid,
-                  (w[kCGWindowLayer as String] as? Int) == 0,
+                  // 普通窗口是第 0 层；「置顶」的窗口（比如视频播放器的置顶模式）在第 3 层。
+                  // 菜单、弹出框、状态栏这些在更高的层，不算
+                  let layer = w[kCGWindowLayer as String] as? Int, (0...8).contains(layer),
                   let id = w[kCGWindowNumber as String] as? CGWindowID, !axIDs.contains(id),
                   (w[kCGWindowAlpha as String] as? Double ?? 1) > 0,
                   let b = w[kCGWindowBounds as String] as? [String: CGFloat],

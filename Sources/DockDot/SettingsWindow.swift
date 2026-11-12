@@ -11,9 +11,13 @@ final class SettingsWindowController {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(settings: .shared)))
             w.title = L("DockDot 设置", "DockDot Settings")
-            w.styleMask = [.titled, .closable, .miniaturizable]
+            // 内容延伸到标题栏下面、标题栏透明：左侧导航栏能一直铺到窗口顶部
+            w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            w.titlebarAppearsTransparent = true
+            w.titleVisibility = .hidden
+            w.toolbarStyle = .unified
             w.isReleasedWhenClosed = false
-            w.setContentSize(NSSize(width: 960, height: 640))
+            w.setContentSize(NSSize(width: 1100, height: 680))
             w.center()
             window = w
             NotificationCenter.default.addObserver(forName: AppSettings.changed, object: nil, queue: .main) { [weak w] _ in
@@ -25,30 +29,95 @@ final class SettingsWindowController {
     }
 }
 
-// MARK: - 根视图
+// MARK: - 根视图：左侧导航 + 右侧内容
+
+@available(macOS 26.0, *)
+enum SettingsPane: String, CaseIterable, Identifiable {
+    case appearance, general, permissions, about
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .appearance: L("外观", "Appearance")
+        case .general: L("通用", "General")
+        case .permissions: L("权限", "Permissions")
+        case .about: L("关于", "About")
+        }
+    }
+    var icon: String {
+        switch self {
+        case .appearance: "circle.circle"
+        case .general: "gearshape"
+        case .permissions: "lock.shield"
+        case .about: "info.circle"
+        }
+    }
+    var tint: Color {
+        switch self {
+        case .appearance: .indigo
+        case .general: .gray
+        case .permissions: .blue
+        case .about: .teal
+        }
+    }
+}
 
 @available(macOS 26.0, *)
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
-    // 启动参数 --settings-tab <appearance|general|permissions|about> 可以直接打开某个标签页
-    @State private var tab: String = {
+    // 启动参数 --settings-tab <appearance|general|permissions|about> 可以直接打开某一页
+    @State private var pane: SettingsPane? = {
         let a = CommandLine.arguments
-        if let i = a.firstIndex(of: "--settings-tab"), i + 1 < a.count { return a[i + 1] }
-        return "appearance"
+        if let i = a.firstIndex(of: "--settings-tab"), i + 1 < a.count { return SettingsPane(rawValue: a[i + 1]) ?? .appearance }
+        return .appearance
     }()
 
+    private var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
     var body: some View {
-        TabView(selection: $tab) {
-            AppearanceTab(settings: settings)
-                .tabItem { Label(L("外观", "Appearance"), systemImage: "circle.circle") }.tag("appearance")
-            GeneralTab(settings: settings)
-                .tabItem { Label(L("通用", "General"), systemImage: "gearshape") }.tag("general")
-            PermissionsTab()
-                .tabItem { Label(L("权限", "Permissions"), systemImage: "lock.shield") }.tag("permissions")
-            AboutTab()
-                .tabItem { Label(L("关于", "About"), systemImage: "info.circle") }.tag("about")
+        NavigationSplitView {
+            List(selection: $pane) {
+                Section {
+                    ForEach(SettingsPane.allCases) { p in
+                        Label {
+                            Text(p.title)
+                        } icon: {
+                            // 和系统设置一样：彩色圆角方块里放白色图标
+                            Image(systemName: p.icon)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 22, height: 22)
+                                .background(p.tint.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                        .tag(p)
+                    }
+                } header: {
+                    HStack(spacing: 10) {
+                        Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 36, height: 36)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("DockDot").font(.headline).foregroundStyle(.primary)
+                            Text(L("版本 \(version)", "Version \(version)")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.bottom, 10)
+                    .textCase(nil)
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 240)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            Group {
+                switch pane ?? .appearance {
+                case .appearance: AppearanceTab(settings: settings)
+                case .general: GeneralTab(settings: settings)
+                case .permissions: PermissionsTab()
+                case .about: AboutTab()
+                }
+            }
+            .navigationTitle((pane ?? .appearance).title)
         }
-        .frame(width: 960, height: 640)
+        .frame(minWidth: 1100, minHeight: 680)
     }
 }
 
@@ -219,7 +288,7 @@ struct TintPalette: View {
                     color = NSColor(hue: CGFloat(h), saturation: s, brightness: b, alpha: 1)
                 }))
             HStack(spacing: 8) {
-                Text(L("明暗", "Brightness")).font(.caption).foregroundStyle(.secondary)
+                Text(L("明暗", "Brightness")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Slider(value: Binding(
                     get: { Double(hsb.b) },
                     set: { color = NSColor(hue: hsb.h, saturation: hsb.s, brightness: CGFloat($0), alpha: 1) }),
@@ -465,12 +534,22 @@ struct PermissionsTab: View {
                               title: L("切换到 App 所在的桌面", "Switch to the app’s Space"),
                               detail: L("App 的窗口在另一块屏幕或另一个桌面上时，点图标会把那个窗口带到前面。",
                                         "When an app’s window is on another display or Space, clicking its icon brings that window forward."))
-                Button(L("打开系统设置中的辅助功能…", "Open Accessibility Settings…")) {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                HStack {
+                    Button(L("打开系统设置中的辅助功能…", "Open Accessibility Settings…")) {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                    }
+                    if !axTrusted {
+                        Button(L("重新授权", "Re-authorize")) { reauthorize() }
+                    }
                 }
-                Text(L("授权后需要从菜单栏退出 DockDot 再重新打开。没授权时小圆点照常可用。",
-                       "After granting access, quit DockDot from the menu bar and open it again. The floating dot works without it."))
-                    .font(.caption).foregroundStyle(.secondary)
+                if !axTrusted {
+                    Text(L("如果系统设置里 DockDot 的开关已经打开，这里却仍显示未授权，说明那条授权属于旧版本的 DockDot（签名变过）。点「重新授权」会清掉旧授权并弹出系统提示，按提示重新打开开关即可。",
+                           "If DockDot’s switch is already on in System Settings but this still says not granted, that entry belongs to an older DockDot build (its signature changed). Click Re-authorize to clear it and get a fresh system prompt, then turn the switch on again."))
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Text(L("授权后状态会自动更新；如果快捷键还没反应，从菜单栏退出 DockDot 再重新打开。没授权时小圆点照常可用。",
+                       "The status updates automatically once access is granted. If the shortcut still doesn’t respond, quit DockDot from the menu bar and reopen it. The floating dot works without it."))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Section(L("不需要的权限", "Not Requested")) {
                 PermissionRow(icon: "checkmark.shield",
@@ -495,9 +574,22 @@ struct PermissionsTab: View {
         }
         .formStyle(.grouped)
         .onAppear { axTrusted = AXIsProcessTrusted() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+        // 在系统设置里打开开关后，这里每 2 秒自动刷新一次状态
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
             axTrusted = AXIsProcessTrusted()
         }
+    }
+
+    /// 清掉这个 App 的旧授权记录（只影响 DockDot 自己），再弹出系统的授权提示
+    private func reauthorize() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        p.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? "local.dockdot"]
+        try? p.run()
+        p.waitUntilExit()
+        let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(opts)
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 }
 
