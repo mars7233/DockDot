@@ -1,5 +1,7 @@
 # DockDot
 
+简体中文 | [English](README_EN.md)
+
 **把 Mac 的 Dock 收进一个小圆点。**
 
 DockDot 在屏幕边缘放一个类似 iPhone「辅助触控」的半透明小圆点。点一下，或者在任何地方单按一下 **⌥⌘**，就会弹出一个液态玻璃圆盘，你 Dock 上的 App 均匀排成一圈。指向某个方向、点一下就打开。把系统 Dock 设成自动隐藏之后，屏幕上就几乎看不到 Dock 了。
@@ -19,6 +21,7 @@ DockDot 在屏幕边缘放一个类似 iPhone「辅助触控」的半透明小�
 - **原生液态玻璃**：外圈用系统的透明液态玻璃（`NSGlassEffectView`），和桌面小组件是同一种材质；圆心是一小块常规玻璃，文字背景再乱也看得清。
 - **跨屏幕、跨桌面切换**：App 的窗口如果在另一块屏幕上一个没显示的桌面（Space）里，点它会直接切到那个桌面，和点 Dock 图标的效果一样。
 - **设置窗口**：外观参数都能调，左边有实时预览，并提供五种参考背景（桌面壁纸、浅色文档、深色文档、彩色、纯白），方便检查玻璃在各种背景上的效果。
+- **中英文界面**：在 设置 → 通用 → 界面语言 里切换「跟随系统 / 简体中文 / English」，立即生效。
 
 ## 系统要求
 
@@ -42,13 +45,13 @@ DockDot 启动时会先检查环境。如果系统低于 macOS 26，会弹出提
 
 ### 授权辅助功能
 
-⌥⌘ 快捷键和跨桌面切换都需要「辅助功能」权限：
+建议授权「辅助功能」，⌥⌘ 快捷键和跨桌面切换要用到它：
 
 1. 打开 **系统设置 → 隐私与安全性 → 辅助功能**。
 2. 打开 DockDot 的开关；如果列表里没有，点「+」，选择「应用程序」里的 DockDot。
 3. 从菜单栏退出 DockDot，再重新打开。
 
-没有授权时，小圆点照样能用，只是 ⌥⌘ 快捷键不起作用。授权状态可以在 **设置 → 通用** 里查看。
+没有授权时，小圆点照样能用，但 ⌥⌘ 快捷键和跨桌面切换可能不起作用或不准确。授权状态和每项用途可以在 **设置 → 权限** 里查看。
 
 ### 推荐：把系统 Dock 设成自动隐藏
 
@@ -104,7 +107,11 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 
 默认值：透明玻璃，黑色着色 11%，图标 64 pt，离边缘 22 pt，选中光晕 21%。随时可以点「恢复默认外观」。
 
-**通用**：显示小圆点、小圆点不用时的透明度、快捷键说明、辅助功能授权状态、开机自动启动。
+**通用**：界面语言、显示小圆点、小圆点不用时的透明度、快捷键说明、开机自动启动。
+
+**权限**：辅助功能的授权状态和用途说明，以及隐私说明（不联网、不收集数据、不需要其他权限）。
+
+**关于**：版本号、版权和许可证，以及到 GitHub 项目主页和反馈问题的链接。
 
 所有设置都存在 `~/Library/Preferences/local.dockdot.plist`。
 
@@ -132,7 +139,8 @@ Sources/DockDot/
 ├── DockReader.swift      读取 Dock 内容、打开 App
 ├── SpaceFocus.swift      切到其他桌面上的窗口
 ├── Settings.swift        设置数据（UserDefaults）
-└── SettingsWindow.swift  设置窗口（SwiftUI）：预览、参考背景、调色盘
+├── SettingsWindow.swift  设置窗口（SwiftUI）：外观、通用、权限、关于
+└── Lang.swift            中英文切换
 Resources/AppIcon.icns        App 图标（由 scripts/make-icon.swift 生成）
 scripts/make-signing-cert.sh  创建本机自用签名证书
 scripts/make-app.sh           编译、组装、签名 DockDot.app
@@ -149,8 +157,9 @@ build.sh                      本地开发：编译并安装到 ~/Applications
 # 打印点击每个运行中的 App 会怎么切换（不会真的切换），排查多屏 / 多桌面问题
 ~/Applications/DockDot.app/Contents/MacOS/DockDot --where
 
-# 启动时直接打开设置窗口
+# 启动时直接打开设置窗口（可指定标签页：appearance / general / permissions / about）
 open ~/Applications/DockDot.app --args --settings
+open ~/Applications/DockDot.app --args --settings-tab about
 
 # 打印环境检测结果；后两个参数在正常的 Mac 上模拟「系统太旧」「从安装盘运行」的提示
 ~/Applications/DockDot.app/Contents/MacOS/DockDot --env-check

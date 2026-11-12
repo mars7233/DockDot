@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkey = ModifierHotkey()
     private var statusItem: NSStatusItem!
     private var dotToggleItem: NSMenuItem!
+    private var openItem: NSMenuItem!
+    private var settingsItem: NSMenuItem!
+    private var quitItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         launcher = LauncherController()
@@ -27,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.start()
 
         setupStatusItem()
-        if CommandLine.arguments.contains("--settings") { SettingsWindowController.shared.show() }
+        if CommandLine.arguments.contains("--settings") || CommandLine.arguments.contains("--settings-tab") { SettingsWindowController.shared.show() }
 
         // 快捷键需要辅助功能权限；没授权时只弹一次系统提示，小圆点照常可用
         let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
@@ -44,13 +47,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "circle.circle", accessibilityDescription: "DockDot")
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "打开面板", action: #selector(openPanel), keyEquivalent: "").target = self
+        openItem = menu.addItem(withTitle: "", action: #selector(openPanel), keyEquivalent: "")
+        openItem.target = self
         dotToggleItem = menu.addItem(withTitle: "", action: #selector(toggleDot), keyEquivalent: "")
         dotToggleItem.target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: ",").target = self
+        settingsItem = menu.addItem(withTitle: "", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 DockDot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem = menu.addItem(withTitle: "", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.delegate = self
         statusItem.menu = menu
     }
@@ -63,6 +68,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @available(macOS 26.0, *)
 extension AppDelegate: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
-        dotToggleItem.title = dot.isVisible ? "隐藏小圆点" : "显示小圆点"
+        // 每次打开菜单时按当前语言刷新文字
+        openItem.title = L("打开面板", "Open Panel")
+        dotToggleItem.title = dot.isVisible ? L("隐藏小圆点", "Hide Dot") : L("显示小圆点", "Show Dot")
+        settingsItem.title = L("设置…", "Settings…")
+        quitItem.title = L("退出 DockDot", "Quit DockDot")
     }
 }

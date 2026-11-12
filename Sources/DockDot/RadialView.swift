@@ -238,10 +238,10 @@ final class RadialView: NSView {
         if let s = selected {
             let it = slots[s].item
             nameLabel.stringValue = it.name
-            subLabel.stringValue = it.isRunning ? (it.isPinned ? "运行中" : "运行中 · 未固定") : "未运行"
+            subLabel.stringValue = it.isRunning ? (it.isPinned ? L("运行中", "Running") : L("运行中 · 未固定", "Running · Not in Dock")) : L("未运行", "Not running")
         } else {
-            nameLabel.stringValue = slots.isEmpty ? "Dock 上没有 App" : "\(slots.count) 个 App"
-            subLabel.stringValue = "指向图标，点击打开"
+            nameLabel.stringValue = slots.isEmpty ? L("Dock 上没有 App", "No apps in Dock") : L("\(slots.count) 个 App", "\(slots.count) apps")
+            subLabel.stringValue = L("指向图标，点击打开", "Point at an icon, click to open")
         }
     }
 

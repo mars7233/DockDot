@@ -37,8 +37,8 @@ enum SpaceFocus {
 
         var description: String {
             switch self {
-            case let .normal(why): "正常激活（\(why)）"
-            case let .otherSpace(w): "切到其他桌面上的窗口 #\(w)"
+            case let .normal(why): L("正常激活（\(why)）", "Normal activation (\(why))")
+            case let .otherSpace(w): L("切到其他桌面上的窗口 #\(w)", "Switch to window #\(w) on another Space")
             }
         }
     }
@@ -60,10 +60,10 @@ enum SpaceFocus {
                 if !minimized { visibleHere = true }
             }
         }
-        if visibleHere { return .normal("当前显示的桌面上有窗口") }
+        if visibleHere { return .normal(L("当前显示的桌面上有窗口", "has a window on a visible Space")) }
 
         guard let list = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
-        else { return .normal("读不到窗口列表") }
+        else { return .normal(L("读不到窗口列表", "window list unavailable")) }
         // 窗口列表从前到后排列：第一个属于这个 App、又不在当前桌面上的普通窗口，就是它最近用的窗口
         let hit = list.first { w in
             guard (w[kCGWindowOwnerPID as String] as? pid_t) == pid,
@@ -74,7 +74,7 @@ enum SpaceFocus {
                   (b["Width"] ?? 0) >= 120, (b["Height"] ?? 0) >= 80 else { return false }
             return true
         }
-        guard let id = hit?[kCGWindowNumber as String] as? CGWindowID else { return .normal("其他桌面上也没有窗口") }
+        guard let id = hit?[kCGWindowNumber as String] as? CGWindowID else { return .normal(L("其他桌面上也没有窗口", "no window on other Spaces either")) }
         return .otherSpace(id)
     }
 

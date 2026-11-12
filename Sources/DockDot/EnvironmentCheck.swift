@@ -32,14 +32,18 @@ enum EnvironmentCheck {
         case let .osTooOld(current):
             let a = NSAlert()
             a.alertStyle = .critical
-            a.messageText = "DockDot 无法在这台 Mac 上运行"
-            a.informativeText = """
+            a.messageText = L("DockDot 无法在这台 Mac 上运行", "DockDot can’t run on this Mac")
+            a.informativeText = L("""
             DockDot 需要 macOS \(minimumMajor)（Tahoe）或更高版本：它的液态玻璃效果是 macOS \(minimumMajor) 才有的系统功能。
 
             这台 Mac 的系统是 macOS \(current)。升级系统后就可以使用：系统设置 → 通用 → 软件更新。
-            """
-            a.addButton(withTitle: "打开软件更新")
-            a.addButton(withTitle: "退出")
+            """, """
+            DockDot requires macOS \(minimumMajor) (Tahoe) or later, because its Liquid Glass look is a system feature introduced in macOS \(minimumMajor).
+
+            This Mac is running macOS \(current). Update via System Settings → General → Software Update to use DockDot.
+            """)
+            a.addButton(withTitle: L("打开软件更新", "Open Software Update"))
+            a.addButton(withTitle: L("退出", "Quit"))
             a.window.level = .floating   // 浮在最前，开着台前调度时也不会被收到侧边
             if a.runModal() == .alertFirstButtonReturn {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!)
@@ -48,14 +52,18 @@ enum EnvironmentCheck {
 
         case .notInstalled:
             let a = NSAlert()
-            a.messageText = "请先把 DockDot 放进「应用程序」文件夹"
-            a.informativeText = """
+            a.messageText = L("请先把 DockDot 放进「应用程序」文件夹", "Move DockDot to the Applications folder first")
+            a.informativeText = L("""
             现在 DockDot 是直接从安装盘里打开的。这样运行时，macOS 会把它放在一个临时位置，辅助功能权限（⌥⌘ 快捷键需要）和开机自动启动都会失效。
 
             可以让 DockDot 自己移过去并重新打开，也可以退出后手动把它拖到「应用程序」文件夹。
-            """
-            a.addButton(withTitle: "移到「应用程序」并打开")
-            a.addButton(withTitle: "退出")
+            """, """
+            DockDot is running straight from the disk image. macOS runs it from a temporary location this way, so Accessibility access (needed for the ⌥⌘ shortcut) and Launch at Login won’t work.
+
+            DockDot can move itself and reopen, or you can quit and drag it to the Applications folder yourself.
+            """)
+            a.addButton(withTitle: L("移到「应用程序」并打开", "Move to Applications and Open"))
+            a.addButton(withTitle: L("退出", "Quit"))
             a.window.level = .floating
             if a.runModal() == .alertFirstButtonReturn {
                 moveToApplicationsAndRelaunch()
@@ -85,9 +93,9 @@ enum EnvironmentCheck {
         } catch {
             let a = NSAlert()
             a.alertStyle = .warning
-            a.messageText = "没能自动移过去"
-            a.informativeText = "\(error.localizedDescription)\n\n请退出后，在安装盘窗口里把 DockDot 拖到「应用程序」文件夹，再从「应用程序」里打开。"
-            a.addButton(withTitle: "好")
+            a.messageText = L("没能自动移过去", "Couldn’t move DockDot automatically")
+            a.informativeText = "\(error.localizedDescription)\n\n" + L("请退出后，在安装盘窗口里把 DockDot 拖到「应用程序」文件夹，再从「应用程序」里打开。", "Quit, drag DockDot from the disk image window to the Applications folder, then open it from Applications.")
+            a.addButton(withTitle: L("好", "OK"))
             a.runModal()
         }
     }

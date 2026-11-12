@@ -10,7 +10,7 @@ final class AppSettings: ObservableObject {
     enum GlassStyle: String, CaseIterable, Identifiable {
         case clear, regular
         var id: String { rawValue }
-        var title: String { self == .clear ? "透明" : "常规" }
+        var title: String { self == .clear ? L("透明", "Clear") : L("常规", "Regular") }
     }
 
     // 液态玻璃
@@ -26,6 +26,8 @@ final class AppSettings: ObservableObject {
     @Published var showCenterLens = true { didSet { save() } }
     @Published var highlightStrength: Double = 0.21 { didSet { save() } }
     @Published var showRunningDots = true { didSet { save() } }
+    // 语言
+    @Published var language: AppLanguage = Lang.setting { didSet { save() } }
     // 小圆点
     @Published var dotVisible = true { didSet { save() } }
     @Published var dotIdleAlpha: Double = 0.45 { didSet { save() } }
@@ -74,6 +76,7 @@ final class AppSettings: ObservableObject {
         d.set(showRunningDots, forKey: "showRunningDots")
         d.set(!dotVisible, forKey: "dotHidden")
         d.set(dotIdleAlpha, forKey: "dotIdleAlpha")
+        d.set(language.rawValue, forKey: "language")
         NotificationCenter.default.post(name: Self.changed, object: self)
     }
 

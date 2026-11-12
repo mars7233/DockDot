@@ -28,6 +28,24 @@ DockDot 安装说明
 系统要求：macOS 26 或更高版本。
 项目主页：https://github.com/mars7233/DockDot
 EOF
+cat > "$STAGE/Install (English).txt" <<'EOF'
+Installing DockDot
+
+1. Drag DockDot onto the "Applications" folder next to it.
+2. Open DockDot from Applications.
+   The first time, macOS may say it "can't verify the developer" or "can't check it for
+   malicious software", because DockDot isn't signed with a paid Apple Developer ID. To allow it:
+   open System Settings → Privacy & Security, scroll down to DockDot and click "Open Anyway".
+3. When asked, grant Accessibility access (System Settings → Privacy & Security → Accessibility,
+   turn on DockDot), then quit DockDot from the menu bar and open it again.
+   The ⌥⌘ shortcut uses this permission.
+
+Usage: click the dot at the screen edge, or tap ⌥⌘, to open the app disc.
+Language: Settings → General → Interface language (English / 简体中文).
+Requirements: macOS 26 or later.
+Project page: https://github.com/mars7233/DockDot
+EOF
+cp LICENSE "$STAGE/LICENSE.txt"
 
 mkdir -p dist
 DMG="dist/DockDot-$VERSION.dmg"

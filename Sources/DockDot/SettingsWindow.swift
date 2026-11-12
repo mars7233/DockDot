@@ -10,12 +10,15 @@ final class SettingsWindowController {
     func show() {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(settings: .shared)))
-            w.title = "DockDot 设置"
+            w.title = L("DockDot 设置", "DockDot Settings")
             w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false
             w.setContentSize(NSSize(width: 960, height: 640))
             w.center()
             window = w
+            NotificationCenter.default.addObserver(forName: AppSettings.changed, object: nil, queue: .main) { [weak w] _ in
+                w?.title = L("DockDot 设置", "DockDot Settings")
+            }
         }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
@@ -27,13 +30,23 @@ final class SettingsWindowController {
 @available(macOS 26.0, *)
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
+    // 启动参数 --settings-tab <appearance|general|permissions|about> 可以直接打开某个标签页
+    @State private var tab: String = {
+        let a = CommandLine.arguments
+        if let i = a.firstIndex(of: "--settings-tab"), i + 1 < a.count { return a[i + 1] }
+        return "appearance"
+    }()
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             AppearanceTab(settings: settings)
-                .tabItem { Label("外观", systemImage: "circle.circle") }
+                .tabItem { Label(L("外观", "Appearance"), systemImage: "circle.circle") }.tag("appearance")
             GeneralTab(settings: settings)
-                .tabItem { Label("通用", systemImage: "gearshape") }
+                .tabItem { Label(L("通用", "General"), systemImage: "gearshape") }.tag("general")
+            PermissionsTab()
+                .tabItem { Label(L("权限", "Permissions"), systemImage: "lock.shield") }.tag("permissions")
+            AboutTab()
+                .tabItem { Label(L("关于", "About"), systemImage: "info.circle") }.tag("about")
         }
         .frame(width: 960, height: 640)
     }
@@ -47,11 +60,11 @@ enum PreviewBackground: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .wallpaper: "桌面壁纸"
-        case .lightDoc: "浅色文档"
-        case .darkDoc: "深色文档"
-        case .colorful: "彩色"
-        case .white: "纯白"
+        case .wallpaper: L("桌面壁纸", "Wallpaper")
+        case .lightDoc: L("浅色文档", "Light Doc")
+        case .darkDoc: L("深色文档", "Dark Doc")
+        case .colorful: L("彩色", "Colorful")
+        case .white: L("纯白", "White")
         }
     }
 }
@@ -65,7 +78,7 @@ struct AppearanceTab: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 12) {
-                Picker("参考背景", selection: $background) {
+                Picker(L("参考背景", "Reference background"), selection: $background) {
                     ForEach(PreviewBackground.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -79,42 +92,42 @@ struct AppearanceTab: View {
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
 
-                Text("预览可以直接把鼠标移上去试选中效果")
+                Text(L("预览可以直接把鼠标移上去试选中效果", "Hover over the preview to try the selection effect"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding(20)
 
             Form {
-                Section("液态玻璃") {
-                    Picker("样式", selection: $settings.glassStyle) {
+                Section(L("液态玻璃", "Liquid Glass")) {
+                    Picker(L("样式", "Style"), selection: $settings.glassStyle) {
                         ForEach(AppSettings.GlassStyle.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     Text(settings.glassStyle == .clear
-                         ? "透明：和桌面小组件一样能看到背后，靠着色压住杂乱背景"
-                         : "常规：系统按背后内容自动调明暗和模糊，更稳但更实")
+                         ? L("透明：和桌面小组件一样能看到背后，靠着色压住杂乱背景", "Clear: see-through like desktop widgets; the tint calms busy backgrounds")
+                         : L("常规：系统按背后内容自动调明暗和模糊，更稳但更实", "Regular: the system adapts brightness and blur to what is behind; steadier but more opaque"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Toggle("着色", isOn: $settings.tintEnabled)
+                    Toggle(L("着色", "Tint"), isOn: $settings.tintEnabled)
                     TintPalette(color: $settings.tintColor)
                         .disabled(!settings.tintEnabled)
                         .opacity(settings.tintEnabled ? 1 : 0.4)
-                    SliderRow(title: "着色强度", value: $settings.tintAlpha, range: 0...0.6) { "\(Int($0 * 100))%" }
+                    SliderRow(title: L("着色强度", "Tint strength"), value: $settings.tintAlpha, range: 0...0.6) { "\(Int($0 * 100))%" }
                         .disabled(!settings.tintEnabled)
-                    Toggle("悬停 / 按下时玻璃有反应", isOn: $settings.interactive)
+                    Toggle(L("悬停 / 按下时玻璃有反应", "Glass reacts to hover / press"), isOn: $settings.interactive)
                 }
-                Section("布局") {
-                    SliderRow(title: "图标大小", value: $settings.iconSize, range: 36...64, step: 1) { "\(Int($0)) pt" }
-                    SliderRow(title: "图标离边缘", value: $settings.edgeMargin, range: 16...64, step: 1) { "\(Int($0)) pt" }
+                Section(L("布局", "Layout")) {
+                    SliderRow(title: L("图标大小", "Icon size"), value: $settings.iconSize, range: 36...64, step: 1) { "\(Int($0)) pt" }
+                    SliderRow(title: L("图标离边缘", "Distance from edge"), value: $settings.edgeMargin, range: 16...64, step: 1) { "\(Int($0)) pt" }
                 }
-                Section("细节") {
-                    Toggle("圆心玻璃（让中间文字更清楚）", isOn: $settings.showCenterLens)
-                    SliderRow(title: "选中光晕", value: $settings.highlightStrength, range: 0...0.3) { "\(Int($0 * 100))%" }
-                    Toggle("运行中的小点", isOn: $settings.showRunningDots)
+                Section(L("细节", "Details")) {
+                    Toggle(L("圆心玻璃（让中间文字更清楚）", "Center glass (keeps the label readable)"), isOn: $settings.showCenterLens)
+                    SliderRow(title: L("选中光晕", "Selection glow"), value: $settings.highlightStrength, range: 0...0.3) { "\(Int($0 * 100))%" }
+                    Toggle(L("运行中的小点", "Running indicators"), isOn: $settings.showRunningDots)
                 }
                 Section {
-                    Button("恢复默认外观") { settings.resetAppearance() }
+                    Button(L("恢复默认外观", "Restore Default Appearance")) { settings.resetAppearance() }
                 }
             }
             .formStyle(.grouped)
@@ -182,7 +195,7 @@ struct TintPalette: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("着色颜色")
+                Text(L("着色颜色", "Tint color"))
                 Spacer()
                 Circle().fill(Color(nsColor: color)).frame(width: 18, height: 18)
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.2), lineWidth: 1))
@@ -206,7 +219,7 @@ struct TintPalette: View {
                     color = NSColor(hue: CGFloat(h), saturation: s, brightness: b, alpha: 1)
                 }))
             HStack(spacing: 8) {
-                Text("明暗").font(.caption).foregroundStyle(.secondary)
+                Text(L("明暗", "Brightness")).font(.caption).foregroundStyle(.secondary)
                 Slider(value: Binding(
                     get: { Double(hsb.b) },
                     set: { color = NSColor(hue: hsb.h, saturation: hsb.s, brightness: CGFloat($0), alpha: 1) }),
@@ -325,32 +338,41 @@ private struct ColorfulBackground: View {
     }
 }
 
-/// 模拟一个文字很多的窗口，用来看玻璃压在杂乱内容上的效果
+/// 模拟一个文字很多的窗口，用来看玻璃压在杂乱内容上的效果（文字随界面语言变化）
 @available(macOS 26.0, *)
 private struct DocumentMock: View {
     let dark: Bool
 
-    private let paragraphs = [
-        "液态玻璃会根据背后的内容实时折射和调整明暗，所以同一个效果在不同背景上看起来差别很大。",
-        "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
-        "本周进展：完成设置页设计评审；修复快捷键在全屏 App 下偶发失效的问题；优化图标加载速度。",
-        "Q4 roadmap · Growth · Foundation · Enterprise — 12 tickets in review, 3 blocked, 27 done.",
-        "下一步计划：补充埋点、整理验收用例、和研发对齐上线时间，周五前给出排期。",
-    ]
+    private var paragraphs: [String] {
+        Lang.isChinese ? [
+            "液态玻璃会根据背后的内容实时折射和调整明暗，所以同一个效果在不同背景上看起来差别很大。",
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+            "本周进展：完成设置页设计评审；修复快捷键在全屏 App 下偶发失效的问题；优化图标加载速度。",
+            "Q4 roadmap · Growth · Foundation · Enterprise — 12 tickets in review, 3 blocked, 27 done.",
+            "下一步计划：补充埋点、整理验收用例、和研发对齐上线时间，周五前给出排期。",
+        ] : [
+            "Liquid Glass refracts and adapts to whatever is behind it, so the same settings look very different on different backgrounds.",
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.",
+            "This week: finished the settings design review, fixed the shortcut occasionally failing in full-screen apps, sped up icon loading.",
+            "Q4 roadmap · Growth · Foundation · Enterprise — 12 tickets in review, 3 blocked, 27 done.",
+            "Next: add analytics events, write acceptance cases, align the launch date with engineering by Friday.",
+        ]
+    }
 
     var body: some View {
         let fg: Color = dark ? .white.opacity(0.85) : .black.opacity(0.8)
         let sub: Color = dark ? .white.opacity(0.5) : .black.opacity(0.45)
+        let headings = Lang.isChinese ? ["进展", "风险", "数据", "计划"] : ["Progress", "Risks", "Metrics", "Plan"]
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 ForEach([Color.red, .yellow, .green], id: \.self) { Circle().fill($0).frame(width: 11) }
                 Spacer()
-                Text("周报 - 产品团队").font(.system(size: 12, weight: .semibold)).foregroundStyle(sub)
+                Text(L("周报 - 产品团队", "Weekly Report - Product Team")).font(.system(size: 12, weight: .semibold)).foregroundStyle(sub)
                 Spacer()
             }
-            Text("产品周报").font(.system(size: 26, weight: .bold)).foregroundStyle(fg)
+            Text(L("产品周报", "Weekly Report")).font(.system(size: 26, weight: .bold)).foregroundStyle(fg)
             ForEach(0..<4, id: \.self) { block in
-                Text(["进展", "风险", "数据", "计划"][block]).font(.system(size: 16, weight: .semibold)).foregroundStyle(fg)
+                Text(headings[block]).font(.system(size: 16, weight: .semibold)).foregroundStyle(fg)
                 ForEach(0..<3, id: \.self) { i in
                     Text(paragraphs[(block * 3 + i) % paragraphs.count])
                         .font(.system(size: 13)).foregroundStyle(i == 2 ? sub : fg)
@@ -377,34 +399,27 @@ struct GeneralTab: View {
     @ObservedObject var settings: AppSettings
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
-    @State private var axTrusted = AXIsProcessTrusted()
 
     var body: some View {
         Form {
-            Section("小圆点") {
-                Toggle("显示屏幕边缘的小圆点", isOn: $settings.dotVisible)
-                SliderRow(title: "不用时的透明度", value: $settings.dotIdleAlpha, range: 0.15...1) { "\(Int($0 * 100))%" }
+            Section(L("语言", "Language")) {
+                Picker(L("界面语言", "Interface language"), selection: $settings.language) {
+                    ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                }
             }
-            Section("快捷键") {
-                LabeledContent("打开 / 收起面板", value: "按一下 ⌥⌘")
-                Text("按住 ⌥⌘ 时按了别的键或点了鼠标（比如 ⌥⌘D、⌥⌘ 拖动）不会触发。面板里也可以用 ← → 选、回车打开、Esc 关闭。")
+            Section(L("小圆点", "Floating Dot")) {
+                Toggle(L("显示屏幕边缘的小圆点", "Show the dot at the screen edge"), isOn: $settings.dotVisible)
+                SliderRow(title: L("不用时的透明度", "Opacity when idle"), value: $settings.dotIdleAlpha, range: 0.15...1) { "\(Int($0 * 100))%" }
+            }
+            Section(L("快捷键", "Shortcut")) {
+                LabeledContent(L("打开 / 收起面板", "Open / close the panel"), value: L("按一下 ⌥⌘", "Tap ⌥⌘"))
+                Text(L("按住 ⌥⌘ 时按了别的键或点了鼠标（比如 ⌥⌘D、⌥⌘ 拖动）不会触发。面板里也可以用 ← → 选、回车打开、Esc 关闭。",
+                       "Holding ⌥⌘ while pressing another key or clicking (e.g. ⌥⌘D, ⌥⌘-drag) won’t trigger it. In the panel, use ← → to select, Return to open, Esc to close."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Section("权限") {
-                LabeledContent("辅助功能") {
-                    HStack(spacing: 6) {
-                        Image(systemName: axTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(axTrusted ? .green : .orange)
-                        Text(axTrusted ? "已授权" : "未授权，⌥⌘ 快捷键不可用")
-                    }
-                }
-                Button("打开系统设置中的辅助功能…") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-                }
-            }
-            Section("启动") {
-                Toggle("开机自动启动", isOn: Binding(
+            Section(L("启动", "Startup")) {
+                Toggle(L("开机自动启动", "Launch at login"), isOn: Binding(
                     get: { loginEnabled },
                     set: { on in
                         do {
@@ -421,12 +436,169 @@ struct GeneralTab: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { refresh() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refresh() }
+        .onAppear { loginEnabled = SMAppService.mainApp.status == .enabled }
+    }
+}
+
+// MARK: - 权限
+
+@available(macOS 26.0, *)
+struct PermissionsTab: View {
+    @ObservedObject private var settings = AppSettings.shared   // 切换语言时刷新
+    @State private var axTrusted = AXIsProcessTrusted()
+
+    var body: some View {
+        Form {
+            Section(L("辅助功能", "Accessibility")) {
+                LabeledContent(L("状态", "Status")) {
+                    HStack(spacing: 6) {
+                        Image(systemName: axTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(axTrusted ? .green : .orange)
+                        Text(axTrusted ? L("已授权", "Granted") : L("未授权，部分功能可能不可用", "Not granted — some features may not work"))
+                    }
+                }
+                PermissionRow(icon: "command",
+                              title: L("监听 ⌥⌘ 单按", "Detect the ⌥⌘ tap"),
+                              detail: L("只判断 ⌥ 和 ⌘ 是否被单独按下、中间有没有按别的键或点鼠标，不记录、不保存你输入的任何内容。",
+                                        "Only checks whether ⌥ and ⌘ were tapped on their own, and whether another key or click happened in between. Nothing you type is recorded or stored."))
+                PermissionRow(icon: "rectangle.on.rectangle",
+                              title: L("切换到 App 所在的桌面", "Switch to the app’s Space"),
+                              detail: L("App 的窗口在另一块屏幕或另一个桌面上时，点图标会把那个窗口带到前面。",
+                                        "When an app’s window is on another display or Space, clicking its icon brings that window forward."))
+                Button(L("打开系统设置中的辅助功能…", "Open Accessibility Settings…")) {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                }
+                Text(L("授权后需要从菜单栏退出 DockDot 再重新打开。没授权时小圆点照常可用。",
+                       "After granting access, quit DockDot from the menu bar and open it again. The floating dot works without it."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("不需要的权限", "Not Requested")) {
+                PermissionRow(icon: "checkmark.shield",
+                              title: L("没有其他权限", "No other permissions"),
+                              detail: L("不需要屏幕录制、文件和文件夹、通讯录、麦克风、摄像头等任何其他权限。",
+                                        "No Screen Recording, Files & Folders, Contacts, Microphone, Camera or any other permission."))
+            }
+            Section(L("隐私", "Privacy")) {
+                PermissionRow(icon: "wifi.slash",
+                              title: L("不联网", "Works offline"),
+                              detail: L("DockDot 不连接网络，不收集、不上传任何数据。",
+                                        "DockDot never connects to the network and collects or uploads no data."))
+                PermissionRow(icon: "internaldrive",
+                              title: L("只读本机的 Dock 配置", "Reads only your Dock configuration"),
+                              detail: L("读取系统 Dock 的 App 列表和正在运行的 App 来显示面板；所有设置只存在这台 Mac 上。",
+                                        "It reads the Dock’s app list and running apps to build the panel. All settings stay on this Mac."))
+                PermissionRow(icon: "exclamationmark.circle",
+                              title: L("使用了系统非公开接口", "Uses a private system API"),
+                              detail: L("跨桌面切换窗口用到了 macOS 的非公开接口（和 AltTab 相同）。以后系统更新可能让它失效，那时会退回普通的打开方式。",
+                                        "Switching to windows on other Spaces uses a private macOS API (the same one AltTab uses). A future macOS update may break it; DockDot then falls back to a normal app activation."))
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { axTrusted = AXIsProcessTrusted() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            axTrusted = AXIsProcessTrusted()
+        }
+    }
+}
+
+@available(macOS 26.0, *)
+private struct PermissionRow: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon).frame(width: 20).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+// MARK: - 关于
+
+@available(macOS 26.0, *)
+struct AboutTab: View {
+    @ObservedObject private var settings = AppSettings.shared   // 切换语言时刷新
+    private static let repo = "https://github.com/mars7233/DockDot"
+
+    private var version: String {
+        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        return b.map { "\(v) (\($0))" } ?? v
     }
 
-    private func refresh() {
-        axTrusted = AXIsProcessTrusted()
-        loginEnabled = SMAppService.mainApp.status == .enabled
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 0)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable().frame(width: 112, height: 112)
+            VStack(spacing: 4) {
+                Text("DockDot").font(.system(size: 28, weight: .bold))
+                Text(L("版本 \(version)", "Version \(version)")).foregroundStyle(.secondary)
+            }
+            Text(L("把 Mac 的 Dock 收进一个小圆点。", "Your Mac’s Dock, tucked into a small dot."))
+                .font(.title3)
+
+            HStack(spacing: 12) {
+                Link(destination: URL(string: Self.repo)!) {
+                    Label { Text(L("在 GitHub 上查看", "View on GitHub")) } icon: { GitHubMark().frame(width: 16, height: 16) }
+                }
+                .buttonStyle(.borderedProminent)
+                Link(L("反馈问题", "Report an Issue"), destination: URL(string: Self.repo + "/issues")!)
+                    .buttonStyle(.bordered)
+            }
+            .controlSize(.large)
+
+            VStack(spacing: 6) {
+                Text("© 2026 Mason").font(.callout)
+                HStack(spacing: 4) {
+                    Text(L("许可证：", "License:"))
+                    Link("PolyForm Strict 1.0.0", destination: URL(string: Self.repo + "/blob/main/LICENSE")!)
+                }
+                .font(.callout)
+                Text(L("仅限个人或非营利使用；修改、复制、转发或商业使用需获得作者许可。",
+                       "Personal and noncommercial use only. Modifying, copying, redistributing or commercial use requires the author’s permission."))
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: 520)
+
+            VStack(spacing: 4) {
+                Text(L("致谢", "Thanks")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 14) {
+                    Link("dok", destination: URL(string: "https://github.com/chillintheshade/dok")!)
+                    Link("AltTab", destination: URL(string: "https://github.com/lwouis/alt-tab-macos")!)
+                    Link("RadialMenu", destination: URL(string: "https://github.com/ricky-yosh/RadialMenu")!)
+                }
+                .font(.caption)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// GitHub 标志（Octicons mark-github），用模板图跟随按钮文字颜色
+@available(macOS 26.0, *)
+struct GitHubMark: View {
+    private static let image: NSImage? = {
+        let svg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16"><path fill="#000" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+        """
+        guard let img = NSImage(data: Data(svg.utf8)) else { return nil }
+        img.isTemplate = true
+        return img
+    }()
+
+    var body: some View {
+        if let img = Self.image {
+            Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
+        } else {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+        }
     }
 }
