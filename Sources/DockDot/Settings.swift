@@ -52,6 +52,8 @@ final class AppSettings: ObservableObject {
     // 玻璃扭曲程度（0…1）：外圈默认和系统 Dock 一样；圆心默认是设置里对比过的方案 4
     @Published var outerDistortion: Double = 0.05 { didSet { save() } }
     @Published var centerDistortion: Double = 0.5 { didSet { save() } }
+    /// 圆心玻璃边缘的羽化宽度（占半径的比例，0 = 硬边）
+    @Published var centerFeather: Double = 0.15 { didSet { save() } }
     // 细节
     @Published var showCenterLens = true { didSet { save() } }
     @Published var highlightStrength: Double = 0.21 { didSet { save() } }
@@ -88,6 +90,7 @@ final class AppSettings: ObservableObject {
         if let v = d.object(forKey: "edgeMargin") as? Double { edgeMargin = v }
         if let v = d.object(forKey: "outerDistortion") as? Double { outerDistortion = v }
         if let v = d.object(forKey: "centerDistortion") as? Double { centerDistortion = v }
+        if let v = d.object(forKey: "centerFeather") as? Double { centerFeather = v }
         if d.object(forKey: "showCenterLens") != nil { showCenterLens = d.bool(forKey: "showCenterLens") }
         if let v = d.object(forKey: "highlightStrength") as? Double { highlightStrength = v }
         if d.object(forKey: "showRunningDots") != nil { showRunningDots = d.bool(forKey: "showRunningDots") }
@@ -111,6 +114,7 @@ final class AppSettings: ObservableObject {
         d.set(edgeMargin, forKey: "edgeMargin")
         d.set(outerDistortion, forKey: "outerDistortion")
         d.set(centerDistortion, forKey: "centerDistortion")
+        d.set(centerFeather, forKey: "centerFeather")
         d.set(showCenterLens, forKey: "showCenterLens")
         d.set(highlightStrength, forKey: "highlightStrength")
         d.set(showRunningDots, forKey: "showRunningDots")
@@ -135,6 +139,7 @@ final class AppSettings: ObservableObject {
         edgeMargin = 22
         outerDistortion = 0.05
         centerDistortion = 0.5
+        centerFeather = 0.15
         showCenterLens = true
         highlightStrength = 0.21
         showRunningDots = true

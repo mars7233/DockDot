@@ -227,15 +227,20 @@ final class RadialView: NSView {
                 hub.contentView = hubContent
                 if hub.superview == nil { addSubview(hub, positioned: .above, relativeTo: disc) }
                 hub.isHidden = false
-                // 羽化：最外 15% 的半径逐渐淡出，圆心和外圈之间没有硬边，也就没有那条边线
+                // 羽化：最外一圈（宽度由设置决定）逐渐淡出，圆心和外圈之间没有硬边，也就没有那条边线；0 = 硬边
                 hub.wantsLayer = true
-                hubMask.type = .radial
-                hubMask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
-                hubMask.locations = [0, 0.85, 1]
-                hubMask.startPoint = CGPoint(x: 0.5, y: 0.5)
-                hubMask.endPoint = CGPoint(x: 1, y: 1)
-                hubMask.frame = hub.bounds
-                hub.layer?.mask = hubMask
+                let feather = min(max(s.centerFeather, 0), 0.6)
+                if feather > 0.005 {
+                    hubMask.type = .radial
+                    hubMask.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.clear.cgColor]
+                    hubMask.locations = [0, NSNumber(value: 1 - feather), 1]
+                    hubMask.startPoint = CGPoint(x: 0.5, y: 0.5)
+                    hubMask.endPoint = CGPoint(x: 1, y: 1)
+                    hubMask.frame = hub.bounds
+                    hub.layer?.mask = hubMask
+                } else {
+                    hub.layer?.mask = nil
+                }
                 host = hubContent
                 hc = NSPoint(x: lensR, y: lensR)
             } else {
