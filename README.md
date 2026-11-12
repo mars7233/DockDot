@@ -171,3 +171,11 @@ open ~/Applications/DockDot.app --args --simulate-dmg
 - [chillintheshade/dok](https://github.com/chillintheshade/dok)：液态玻璃轮盘的材质用法（原生玻璃、不裁剪、圆心镜片）参考了它。
 - [lwouis/alt-tab-macos](https://github.com/lwouis/alt-tab-macos)：跨桌面聚焦窗口的做法。
 - [ricky-yosh/RadialMenu](https://github.com/ricky-yosh/RadialMenu)：⌥⌘ 快捷键的灵感来源。
+
+## 许可证
+
+DockDot 采用 [PolyForm Strict 1.0.0](LICENSE) 许可证，版权归 Mason 所有。
+
+- ✅ 可以：个人或非营利目的下载、安装、使用 DockDot，阅读源码
+- ❌ 不可以：用于商业目的；修改代码或基于它做新作品；复制、转发、重新分发代码或安装包
+- 引用、复制、商业使用或其他许可之外的用途，请先通过 [GitHub](https://github.com/mars7233) 联系作者获得书面许可
