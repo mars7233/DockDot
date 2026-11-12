@@ -108,11 +108,11 @@ The ◎ menu bar icon has: Open Panel, Show/Hide Dot, Settings… (⌘,), Quit.
 
 | Group | Options |
 |---|---|
-| Liquid Glass | Style (Clear / Regular), tint on/off, tint color (built-in palette), tint strength, glass reacts to hover / press |
+| Liquid Glass | Style (Dock / Clear / Regular), tint on/off, tint color (built-in palette), tint strength, glass reacts to hover / press |
 | Layout | Icon size (36–64 pt), distance from the glass edge |
 | Details | Center glass (keeps the label readable), selection glow strength, running indicators |
 
-Defaults: clear glass, black tint at 11%, 64 pt icons, 22 pt from the edge, 21% selection glow. "Restore Default Appearance" brings them back.
+Defaults: Dock style (the system Dock's own material), no tint, 64 pt icons, 22 pt from the edge, 21% selection glow. "Restore Default Appearance" brings them back.
 
 **General** — interface language, show the floating dot, its idle opacity, shortcut notes, launch at login.
 
@@ -129,7 +129,7 @@ All settings are stored in `~/Library/Preferences/local.dockdot.plist`.
 | Reading the Dock | Pinned apps come from `persistent-apps` in the system Dock's `com.apple.dock` preferences; running apps that aren't pinned come from `NSWorkspace.runningApplications` |
 | Opening apps | `NSWorkspace.openApplication`, which behaves like clicking a Dock icon: launches the app if needed, otherwise switches to it and restores minimized windows |
 | Detecting the ⌥⌘ tap | A global `flagsChanged` monitor. It only counts as a tap if ⌥⌘ is entered from a subset of itself and released within 0.8 s with no other key or click in between. Other input is detected two ways: key/click monitors and the system-wide input counter (`CGEventSource.counterForEventType`) |
-| Liquid Glass | The ring is one `NSGlassEffectView` (`.clear` + tint); the center is a separate `.regular` glass whose `contentView` holds the labels, so the system picks dark or light text based on what's behind |
+| Liquid Glass | The default Dock style uses the system Dock's own material: `NSGlassEffectView`'s private `_variant = 3`. The panel window answers the private `_hasActiveAppearance` family with true and calls `_windowChangedKeyState`, so the glass always renders in its active state (otherwise it is the milky inactive material), and the glass filter's inner refraction is set to the Dock's values (height 13.28, amount −29.88). Compared pixel by pixel with the real Dock over the same background, brightness differs by under 1 (0–255) over wallpaper and colorful backgrounds and about 10 over text; the public Regular style is about 93 brighter over wallpaper. Based on [tungsten-edge](https://github.com/moonbai-studio/tungsten-edge) and [Dockline](https://github.com/HuanCheng65/Dockline). The center is a separate glass whose `contentView` holds the labels, so the system picks dark or light text |
 | Switching Spaces | The Accessibility API only sees windows on Spaces that are currently showing. If an app has no regular document window there (floating windows such as picture-in-picture or pinned mini players don't count), DockDot finds its frontmost window that actually belongs to a Space — regular or stay-on-top — in `CGWindowListCopyWindowInfo` (which covers every Space), brings it forward with SkyLight's `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo`, then gets that window's accessibility element through a remote token and raises it (as [AltTab](https://github.com/lwouis/alt-tab-macos) does). Some apps (e.g. PiliPlus's pinned player) don't support raising, so macOS doesn't switch Spaces; DockDot then works out where the target Space sits on that display, briefly moves the pointer there, presses the system's "Move left / right a space" shortcut (Ctrl+← / Ctrl+→) the right number of times, and moves the pointer back |
 
 ### Project layout

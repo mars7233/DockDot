@@ -17,6 +17,13 @@ final class LauncherPanel: NSPanel {
         acceptsMouseMovedEvents = true
     }
     override var canBecomeKey: Bool { true }
+
+    // 让玻璃始终按「激活」状态渲染（和系统 Dock 一样清透）；面板本身不会抢走其他 App 的激活状态
+    @objc(_hasActiveAppearance) func dd_hasActiveAppearance() -> Bool { true }
+    @objc(_hasActiveAppearanceIgnoringKeyFocus) func dd_hasActiveAppearanceIgnoringKeyFocus() -> Bool { true }
+    @objc(_hasKeyAppearance) func dd_hasKeyAppearance() -> Bool { true }
+    @objc(_hasMainAppearance) func dd_hasMainAppearance() -> Bool { true }
+    @objc(_hasActiveControls) func dd_hasActiveControls() -> Bool { true }
     override func cancelOperation(_ sender: Any?) { onCancel?() }   // Esc
 }
 
@@ -50,6 +57,7 @@ final class LauncherController {
         position(anchor, size: size)
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
+        radial.refreshGlass()
         panel.makeFirstResponder(radial)
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.15

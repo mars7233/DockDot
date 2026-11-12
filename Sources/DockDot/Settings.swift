@@ -8,14 +8,20 @@ final class AppSettings: ObservableObject {
     static let changed = Notification.Name("DockDotSettingsChanged")
 
     enum GlassStyle: String, CaseIterable, Identifiable {
-        case clear, regular
+        case dock, clear, regular
         var id: String { rawValue }
-        var title: String { self == .clear ? L("透明", "Clear") : L("常规", "Regular") }
+        var title: String {
+            switch self {
+            case .dock: L("程序坞", "Dock")
+            case .clear: L("透明", "Clear")
+            case .regular: L("常规", "Regular")
+            }
+        }
     }
 
     // 液态玻璃
-    @Published var glassStyle: GlassStyle = .clear { didSet { save() } }
-    @Published var tintEnabled = true { didSet { save() } }
+    @Published var glassStyle: GlassStyle = .dock { didSet { save() } }
+    @Published var tintEnabled = false { didSet { save() } }
     @Published var tintColor: NSColor = .black { didSet { save() } }
     @Published var tintAlpha: Double = 0.11 { didSet { save() } }
     @Published var interactive = true { didSet { save() } }
@@ -83,8 +89,8 @@ final class AppSettings: ObservableObject {
     /// 外观参数恢复默认（不动「显示小圆点」）
     func resetAppearance() {
         loading = true
-        glassStyle = .clear
-        tintEnabled = true
+        glassStyle = .dock
+        tintEnabled = false
         tintColor = .black
         tintAlpha = 0.11
         interactive = true

@@ -279,11 +279,16 @@ struct AppearancePane: View {
                 } header: {
                     Text(L("液态玻璃", "Liquid Glass"))
                 } footer: {
-                    Footnote(settings.glassStyle == .clear
-                        ? L("透明：和桌面小组件一样能看到背后的内容。背景比较杂时，可以加一点着色让图标更清楚。",
-                            "Clear: see-through, like desktop widgets. On busy backgrounds, a little tint keeps icons clear.")
-                        : L("常规：系统根据背后的内容自动调整明暗和模糊，更稳定，但没那么通透。",
-                            "Regular: the system adapts brightness and blur to what’s behind — steadier, but less see-through."))
+                    Footnote({
+                        switch settings.glassStyle {
+                        case .dock: return L("程序坞：和系统程序坞相同的液态玻璃材质，一般不需要着色。",
+                                             "Dock: the same Liquid Glass material as the system Dock. Usually no tint needed.")
+                        case .clear: return L("透明：和桌面小组件一样能看到背后的内容。背景比较杂时，可以加一点着色让图标更清楚。",
+                                              "Clear: see-through, like desktop widgets. On busy backgrounds, a little tint keeps icons clear.")
+                        case .regular: return L("常规：系统根据背后的内容自动调整明暗和模糊，更稳定，但会偏白、没那么通透。",
+                                                "Regular: the system adapts brightness and blur to what’s behind — steadier, but whiter and less see-through.")
+                        }
+                    }())
                 }
 
                 Section(L("布局", "Layout")) {

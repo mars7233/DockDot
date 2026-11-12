@@ -108,11 +108,11 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 
 | 分组 | 参数 |
 |---|---|
-| 液态玻璃 | 样式（透明 / 常规）、着色开关、着色颜色（内置调色盘）、着色强度、悬停 / 按下时玻璃有反应 |
+| 液态玻璃 | 样式（程序坞 / 透明 / 常规）、着色开关、着色颜色（内置调色盘）、着色强度、悬停 / 按下时玻璃有反应 |
 | 布局 | 图标大小（36–64 pt）、图标离边缘的距离 |
 | 细节 | 圆心玻璃（让中间文字更清楚）、选中光晕强度、运行中的小点 |
 
-默认值：透明玻璃，黑色着色 11%，图标 64 pt，离边缘 22 pt，选中光晕 21%。随时可以点「恢复默认外观」。
+默认值：程序坞样式（和系统 Dock 同一种材质）、不着色，图标 64 pt，离边缘 22 pt，选中光晕 21%。随时可以点「恢复默认外观」。
 
 **通用**：界面语言、显示小圆点、小圆点不用时的透明度、快捷键说明、开机自动启动。
 
@@ -129,7 +129,7 @@ VERSION=1.0.0 ./scripts/package-dmg.sh
 | 读取 Dock 内容 | 读系统 Dock 配置 `com.apple.dock` 里的 `persistent-apps` 得到固定的 App，再从 `NSWorkspace.runningApplications` 补上正在运行但没固定的 App |
 | 打开 App | `NSWorkspace.openApplication`，效果和点 Dock 图标一样：没运行就启动，运行中就切过去，最小化的窗口也会恢复 |
 | ⌥⌘ 单按检测 | 全局监听 `flagsChanged`。只有「从 ⌥⌘ 的子集按进来、再松开，期间没有别的按键或鼠标点击、且 0.8 秒内松开」才算一次单按。是否有别的输入，同时用两种方式判断：按键/点击监听，以及系统全局输入计数器（`CGEventSource.counterForEventType`） |
-| 液态玻璃 | 外圈是一块 `NSGlassEffectView`（`.clear` + 着色）；圆心是另一块 `.regular` 玻璃，文字放在它的 `contentView` 里，这样系统会按背景明暗自动选择深色或浅色文字 |
+| 液态玻璃 | 默认的「程序坞」样式用的是系统 Dock 自己的材质：`NSGlassEffectView` 的私有档位 `_variant = 3`；面板窗口对 `_hasActiveAppearance` 等私有方法返回真，并调用 `_windowChangedKeyState`，让玻璃始终按「激活」状态渲染（否则是乳白的非激活材质）；再把玻璃滤镜的内折射改成 Dock 的值（高度 13.28、强度 −29.88）。把它和真实 Dock 放在同一块背景上逐像素对比：壁纸和彩色背景上亮度差不到 1（0–255），文字背景上约 10；公开的「常规」样式在壁纸上要亮约 93。做法参考 [tungsten-edge](https://github.com/moonbai-studio/tungsten-edge) 和 [Dockline](https://github.com/HuanCheng65/Dockline)。圆心是另一块玻璃，文字放在它的 `contentView` 里，系统会按背景明暗自动选深色或浅色字 |
 | 跨桌面切换 | 辅助功能接口只能看到当前正在显示的桌面上的窗口。如果 App 在这些桌面上没有正常的文档窗口（画中画、置顶小窗这类悬浮窗口不算），就从 `CGWindowListCopyWindowInfo`（覆盖所有桌面）里找到它最前面、且确实在某个桌面上的窗口（普通窗口和「置顶」窗口都算），用 SkyLight 的 `_SLPSSetFrontProcessWithOptions` / `SLPSPostEventRecordTo` 把它放到最前，再通过远程令牌拿到这个窗口的辅助功能元素执行「提到最前」（参考 [AltTab](https://github.com/lwouis/alt-tab-macos)）。有些 App（比如 PiliPlus 的置顶播放窗口）不支持这一步，系统就不会切桌面；这时 DockDot 会算出目标桌面在那块屏幕上的位置，临时把鼠标移过去，用系统的「向左 / 向右移动一个桌面」快捷键（Ctrl+← / Ctrl+→）切过去，再把鼠标移回来 |
 
 ### 代码结构

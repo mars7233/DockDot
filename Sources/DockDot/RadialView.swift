@@ -110,7 +110,9 @@ final class RadialView: NSView {
         disc.frame = bounds
         disc.cornerRadius = R
         // 液态玻璃参数都来自设置；不裁剪，让系统自己画边缘
+        // 「程序坞」样式：和系统 Dock 同一种私有材质（见 DockGlass）；不支持时退回透明玻璃
         disc.style = s.glassStyle == .regular ? .regular : .clear
+        if s.glassStyle == .dock { DockGlass.applyDockMaterial(disc) }
         disc.tintColor = s.effectiveTint
         disc.clipsToBounds = false
         if #available(macOS 27.0, *) {
@@ -157,6 +159,7 @@ final class RadialView: NSView {
             hub.frame = circle(c, lensR)
             hub.cornerRadius = lensR
             hub.style = .regular
+            if s.glassStyle == .dock { DockGlass.applyDockMaterial(hub) }
             hub.tintColor = nil
             hubContent.subviews.forEach { $0.removeFromSuperview() }
             hubContent.frame = hub.bounds
@@ -184,7 +187,14 @@ final class RadialView: NSView {
         nameLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 1, width: w, height: 21)
         subLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 21, width: w, height: 16)
         updateCenter()
+        if s.glassStyle == .dock { DockGlass.finish(hub.isHidden ? [disc] : [disc, hub]) }
         return size
+    }
+
+    /// 窗口显示出来之后再做一次（玻璃要在窗口里才会取样激活状态）
+    func refreshGlass() {
+        guard AppSettings.shared.glassStyle == .dock else { return }
+        DockGlass.finish(hub.isHidden ? [disc] : [disc, hub])
     }
 
     private func circle(_ c: NSPoint, _ r: CGFloat) -> NSRect {
