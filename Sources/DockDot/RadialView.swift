@@ -208,8 +208,14 @@ final class RadialView: NSView {
             // 圆心：一小块玻璃，文字放在它里面；系统会按背景明暗自动选深色/浅色字。
             // 关掉「圆心玻璃」时文字直接放在外圈玻璃上
             let ringInner = ringRadius - iconSize / 2 - CGFloat(s.edgeMargin)
-            let lensR = s.discShape == .ring ? min(80, ringInner - 16) : min(80, ringRadius - iconSize / 2 - 14)
-            let w = lensR * 2 - 18
+            // 圆盘：圆心玻璃随圆盘一起放大，始终离图标留一段固定距离（边距 + 8），
+            //       App 多、圆盘变大时中间不会留出一大片空玻璃；
+            // 圆环：中间本来就是空的，圆心玻璃保持小巧
+            let lensR = s.discShape == .ring
+                ? min(80, ringInner - 16)
+                : max(56, ringRadius - iconSize / 2 - CGFloat(s.edgeMargin) - 8)
+            let textScale = min(1.5, max(1, lensR / 90))   // 圆心变大时文字也跟着放大一些
+            let w = lensR * 2 - 18 * textScale
             let host: NSView
             let hc: NSPoint
             if s.showCenterLens {
@@ -236,12 +242,12 @@ final class RadialView: NSView {
                 l.lineBreakMode = .byTruncatingTail
                 host.addSubview(l)
             }
-            nameLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+            nameLabel.font = .systemFont(ofSize: 15 * textScale, weight: .semibold)
             nameLabel.textColor = .labelColor
-            subLabel.font = .systemFont(ofSize: 12)
+            subLabel.font = .systemFont(ofSize: 12 * textScale)
             subLabel.textColor = .secondaryLabelColor
-            nameLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 1, width: w, height: 21)
-            subLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 21, width: w, height: 16)
+            nameLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 1 * textScale, width: w, height: 21 * textScale)
+            subLabel.frame = NSRect(x: hc.x - w / 2, y: hc.y - 21 * textScale, width: w, height: 16 * textScale)
         } else {
             // 蜂窝：正中是图标，名称改用图标上方的小玻璃标签
             hub.isHidden = true
