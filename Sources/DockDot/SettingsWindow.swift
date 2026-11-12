@@ -229,6 +229,11 @@ struct AppearancePane: View {
     @ObservedObject var settings: AppSettings
     @State private var background: PreviewBackground = .lightDoc
     private let allApps: [DockItem] = { let r = DockReader.items(); return r.pinned + r.running }()
+    /// 只有「一圈」并且打开了圆心玻璃时，才有圆心那块玻璃
+    private var hasCenterGlass: Bool {
+        settings.resolvedLayout(appCount: allApps.count) == .ring && settings.showCenterLens
+    }
+
     /// 预览用的 App：实际会用蜂窝时显示全部，用一圈时取前 10 个（放得进预览框）
     private var sample: [DockItem] {
         settings.resolvedLayout(appCount: allApps.count) == .grid ? allApps : Array(allApps.prefix(10))
@@ -296,6 +301,18 @@ struct AppearancePane: View {
                                                 "Regular: the system adapts brightness and blur to what’s behind — steadier, but whiter and less see-through.")
                         }
                     }())
+                }
+
+                Section {
+                    ValueSlider(title: L("外圈扭曲程度", "Outer glass distortion"), value: $settings.outerDistortion, range: 0...1) { "\(Int(($0 * 100).rounded()))%" }
+                    if hasCenterGlass {
+                        ValueSlider(title: L("圆心扭曲程度", "Center glass distortion"), value: $settings.centerDistortion, range: 0...1) { "\(Int(($0 * 100).rounded()))%" }
+                    }
+                } header: {
+                    Text(L("玻璃扭曲", "Glass Distortion"))
+                } footer: {
+                    Footnote(L("扭曲程度决定玻璃边缘把背后的内容弯得多厉害。外圈默认 5%，和系统程序坞一致；圆心默认 50%，边缘折射明显并带一圈亮边。",
+                               "How strongly the glass edge bends what’s behind it. The outer glass defaults to 5%, matching the system Dock; the center glass defaults to 50%, with a clear refracting edge and a bright rim."))
                 }
 
                 Section {

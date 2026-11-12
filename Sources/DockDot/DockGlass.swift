@@ -55,20 +55,34 @@ enum DockGlass {
         if glass.responds(to: sel) { _ = glass.perform(sel) }
     }
 
-    /// 把玻璃滤镜的内折射改成 Dock 的值（滤镜归系统所有，只能复制一份改了再换回去）
-    static func applyDockRefraction(_ layer: CALayer) {
-        if var filters = layer.filters as? [NSObject] {
+    /// 玻璃滤镜参数。「扭曲程度」0…1 同时决定内折射的高度和强度：
+    /// 约 0.05 ≈ 系统 Dock 底板（13.28 / -29.88），0.5 = 高度 40 / 强度 -120（设置里方案 4 的扭曲）
+    typealias Tuning = [String: Double]
+
+    static func tuning(distortion d: Double, strongHighlight: Bool = false) -> Tuning {
+        let d = min(max(d, 0), 1)
+        var t: Tuning = ["inputInnerRefractionHeight": 10 + 60 * d,
+                         "inputInnerRefractionAmount": -(20 + 200 * d)]
+        if strongHighlight {                 // 圆心玻璃：加强边缘高光
+            t["inputKeyFillHighlightAmount"] = 1.0
+            t["inputKeyFillHighlightHeight"] = 2
+        }
+        return t
+    }
+
+    /// 把参数写进玻璃滤镜（滤镜归系统所有，只能复制一份改了再换回去）
+    static func apply(_ tuning: Tuning, to layer: CALayer) {
+        if var filters = layer.filters as? [NSObject], !tuning.isEmpty {
             var changed = false
             for (i, f) in filters.enumerated() {
                 guard (f.value(forKey: "type") as? String) == "glassBackground",
                       let keys = f.value(forKey: "inputKeys") as? [String],
-                      keys.contains("inputInnerRefractionHeight"), keys.contains("inputInnerRefractionAmount"),
                       let copy = f.copy() as? NSObject else { continue }
-                if (f.value(forKey: "inputInnerRefractionHeight") as? NSNumber)?.doubleValue == refractionHeight { continue }
-                copy.setValue(refractionHeight, forKey: "inputInnerRefractionHeight")
-                copy.setValue(refractionAmount, forKey: "inputInnerRefractionAmount")
-                filters[i] = copy
-                changed = true
+                var differs = false
+                for (k, v) in tuning where keys.contains(k) {
+                    if (f.value(forKey: k) as? NSNumber)?.doubleValue != v { copy.setValue(v, forKey: k); differs = true }
+                }
+                if differs { filters[i] = copy; changed = true }
             }
             if changed {
                 CATransaction.begin()
@@ -77,15 +91,15 @@ enum DockGlass {
                 CATransaction.commit()
             }
         }
-        layer.sublayers?.forEach(applyDockRefraction)
+        layer.sublayers?.forEach { apply(tuning, to: $0) }
     }
 
-    /// 玻璃上屏之后做的两步：重新取样激活状态，再改折射（改材质或尺寸后系统会换掉滤镜，所以每次显示都做）
-    static func finish(_ glasses: [NSGlassEffectView]) {
+    /// 玻璃上屏之后做的两步：重新取样激活状态，再写入各自的参数（改材质或尺寸后系统会换掉滤镜，所以每次显示都做）
+    static func finish(_ items: [(NSGlassEffectView, Tuning)]) {
         DispatchQueue.main.async {
-            glasses.forEach(refreshActiveState)
+            items.forEach { refreshActiveState($0.0) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                for g in glasses { if let l = g.layer { applyDockRefraction(l) } }
+                for (g, t) in items { if let l = g.layer { apply(t, to: l) } }
             }
         }
     }

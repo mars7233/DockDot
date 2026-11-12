@@ -49,6 +49,9 @@ final class AppSettings: ObservableObject {
     @Published var gridThreshold: Int = 14 { didSet { save() } }
     @Published var iconSize: Double = 64 { didSet { save() } }
     @Published var edgeMargin: Double = 22 { didSet { save() } }
+    // 玻璃扭曲程度（0…1）：外圈默认和系统 Dock 一样；圆心默认是设置里对比过的方案 4
+    @Published var outerDistortion: Double = 0.05 { didSet { save() } }
+    @Published var centerDistortion: Double = 0.5 { didSet { save() } }
     // 细节
     @Published var showCenterLens = true { didSet { save() } }
     @Published var highlightStrength: Double = 0.21 { didSet { save() } }
@@ -83,6 +86,8 @@ final class AppSettings: ObservableObject {
         if d.object(forKey: "gridThreshold") != nil { gridThreshold = d.integer(forKey: "gridThreshold") }
         if let v = d.object(forKey: "iconSize") as? Double { iconSize = v }
         if let v = d.object(forKey: "edgeMargin") as? Double { edgeMargin = v }
+        if let v = d.object(forKey: "outerDistortion") as? Double { outerDistortion = v }
+        if let v = d.object(forKey: "centerDistortion") as? Double { centerDistortion = v }
         if d.object(forKey: "showCenterLens") != nil { showCenterLens = d.bool(forKey: "showCenterLens") }
         if let v = d.object(forKey: "highlightStrength") as? Double { highlightStrength = v }
         if d.object(forKey: "showRunningDots") != nil { showRunningDots = d.bool(forKey: "showRunningDots") }
@@ -104,6 +109,8 @@ final class AppSettings: ObservableObject {
         d.set(gridThreshold, forKey: "gridThreshold")
         d.set(iconSize, forKey: "iconSize")
         d.set(edgeMargin, forKey: "edgeMargin")
+        d.set(outerDistortion, forKey: "outerDistortion")
+        d.set(centerDistortion, forKey: "centerDistortion")
         d.set(showCenterLens, forKey: "showCenterLens")
         d.set(highlightStrength, forKey: "highlightStrength")
         d.set(showRunningDots, forKey: "showRunningDots")
@@ -126,6 +133,8 @@ final class AppSettings: ObservableObject {
         gridThreshold = 14
         iconSize = 64
         edgeMargin = 22
+        outerDistortion = 0.05
+        centerDistortion = 0.5
         showCenterLens = true
         highlightStrength = 0.21
         showRunningDots = true

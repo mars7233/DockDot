@@ -174,7 +174,7 @@ final class RadialView: NSView {
 
         configureLabels(c: c, settings: s)
         updateLabels()
-        if s.glassStyle == .dock { DockGlass.finish(glasses) }
+        DockGlass.finish(glassTuning)
         return size
     }
 
@@ -196,9 +196,11 @@ final class RadialView: NSView {
         return Array(out.prefix(count)).map { (q: $0.0, r: $0.1, ring: $0.2) }
     }
 
-    private var glasses: [NSGlassEffectView] {
-        var g = [disc]
-        if !hub.isHidden { g.append(hub) }
+    /// 每块玻璃和它的参数：外圈、圆心各自用设置里的扭曲程度
+    private var glassTuning: [(NSGlassEffectView, DockGlass.Tuning)] {
+        let s = AppSettings.shared
+        var g: [(NSGlassEffectView, DockGlass.Tuning)] = [(disc, DockGlass.tuning(distortion: s.outerDistortion))]
+        if !hub.isHidden { g.append((hub, DockGlass.tuning(distortion: s.centerDistortion, strongHighlight: true))) }
         return g
     }
 
@@ -271,8 +273,7 @@ final class RadialView: NSView {
 
     /// 窗口显示出来之后再做一次（玻璃要在窗口里才会取样激活状态）
     func refreshGlass() {
-        guard AppSettings.shared.glassStyle == .dock else { return }
-        DockGlass.finish(glasses + (layout == .grid ? [nameTag] : []))
+        DockGlass.finish(glassTuning + (layout == .grid ? [(nameTag, [:])] : []))
     }
 
     private func circle(_ c: NSPoint, _ r: CGFloat) -> NSRect {
@@ -351,7 +352,7 @@ final class RadialView: NSView {
         tagLabel.frame = NSRect(x: 8, y: 4, width: w - 16, height: 16)
         if nameTag.isHidden {
             nameTag.isHidden = false
-            if AppSettings.shared.glassStyle == .dock { DockGlass.finish([nameTag]) }
+            DockGlass.finish([(nameTag, [:])])
         }
     }
 
