@@ -182,13 +182,12 @@ final class RadialView: NSView {
 
     /// 蜂窝的格子位置（以格子为单位，中心在原点），刚好 `count` 个、没有空位。
     ///
-    /// 按行排，每行居中；相邻两行一长一短（差 1）时自然错开半格形成六边形网格，
-    /// 长度相同的相邻两行则把后一行错开半格。枚举行数和每行个数（相邻行差 -1/0/+1），要求：
-    /// - 总数正好等于 count；
-    /// - 中间最宽、往上往下逐渐变窄（中心多、四周少）；
-    /// 再按「外接圆小 + 上下镜像 + 两端比中间窄 + 错开的行少」打分选最好的。
-    /// 另外两种候选：完美对称的排法；差一个时用多一格的完美对称排法、空出正中间（而不是在边上留空）。
-    /// 三种放在一起按紧凑程度挑，避免出现 7-8-7 这种扁长条。
+    /// 外面是个圆盘，所以格子要尽量「圆」：外接圆越小，圆盘里空着的地方越少。
+    /// 主要做法（和 Apple Watch 一样）：在六边形网格上取离中心最近的那些格子，一圈一圈往外铺。
+    /// 中心可以放在格子上，也可以放在同一行两格之间；格子按上下、左右四向镜像成组取，保证镜像对称。
+    /// 最外一圈不满时从里面挑几组凑够数量，尽量不在形状里面留缺口；
+    /// 差一个时把正中间空出来（不在边上留空）。实在凑不出对称的，再考虑只左右镜像的排法和按行排的旧办法。
+    /// 所有候选按「外接圆半径 + 缺口 + 不对称」打分，挑最好的。
     /// 按离中心由近到远排序。
     private static var honeycombCache: [Int: [CGPoint]] = [:]
 
@@ -219,22 +218,6 @@ final class RadialView: NSView {
             return true
         }
         func radius(_ pts: [CGPoint]) -> Double { pts.map { Double(hypot($0.x, $0.y)) }.max() ?? 0 }
-        // 完美对称的蜂窝：奇数行、上下镜像、中间最宽、相邻行差 1（如 3-4-5-4-3）
-        func perfectSymmetric(_ total: Int) -> (radius: Double, pts: [CGPoint])? {
-            var found: (radius: Double, pts: [CGPoint])?
-            for half in 1...4 {                        // 中间行上面有几行
-                for middle in 2...12 {
-                    let side = (1...half).map { middle - $0 }.reversed()
-                    guard side.allSatisfy({ $0 >= 1 }) else { continue }
-                    let rows = Array(side) + [middle] + Array(side.reversed())
-                    guard rows.reduce(0, +) == total else { continue }
-                    let pts = layout(rows).pts
-                    let r = radius(pts)
-                    if r < (found?.radius ?? .infinity) { found = (r, pts) }
-                }
-            }
-            return found
-        }
         func finish(_ pts: [CGPoint]) -> [CGPoint] {
             // 由近到远；距离相同时从正上方开始顺时针
             let sorted = pts.sorted { a, b in
@@ -246,25 +229,100 @@ final class RadialView: NSView {
             honeycombCache[n] = sorted
             return sorted
         }
-        // 几种候选放在一起比「整体有多圆、多紧凑」（外接圆越小越好），不再见到一种就直接用：
-        // 例如 22 个时完美对称只有 7-8-7 这种扁长条，不如 23 格的 2-3-4-5-4-3-2 空出正中间
-        var candidates: [(score: Double, pts: [CGPoint])] = []
-        // 1. 正好有完美对称的排法
-        if n >= 7, let p = perfectSymmetric(n) { candidates.append((p.radius, p.pts)) }
-        // 2. 差一个：用多一格的完美对称排法，把正中间那格空出来（不在边上留空）
-        if n >= 6, let p = perfectSymmetric(n + 1),
-           let c = p.pts.firstIndex(where: { hypot($0.x, $0.y) < 0.01 }) {
-            var rest = p.pts
-            rest.remove(at: c)
-            candidates.append((p.radius + 0.1, rest))
+        // 六边形网格上的格子（中心平移到 (ox, oy)），按上下左右镜像分组（mirrorY 为假时只左右镜像）
+        struct Group { let d: Double; let pts: [CGPoint] }
+        func groups(ox: Double, oy: Double, mirrorY: Bool) -> [Group] {
+            func key(_ x: Double, _ y: Double) -> Int64 { Int64((x * 1000).rounded()) * 1_000_000 + Int64((y * 1000).rounded()) }
+            var all: [Int64: CGPoint] = [:]
+            for k in -7...7 {
+                for i in -7...7 {
+                    let x = Double(i) + (k & 1 == 0 ? 0 : 0.5) - ox, y = Double(k) * rowStep - oy
+                    all[key(x, y)] = CGPoint(x: x, y: y)
+                }
+            }
+            var seen = Set<Int64>(), out: [Group] = []
+            for p in all.values.sorted(by: { (hypot($0.x, $0.y), abs($0.y), $0.x) < (hypot($1.x, $1.y), abs($1.y), $1.x) }) {
+                let k0 = key(p.x, p.y)
+                guard !seen.contains(k0) else { continue }
+                var mirrors = [(p.x, p.y), (-p.x, p.y)]
+                if mirrorY { mirrors += [(p.x, -p.y), (-p.x, -p.y)] }
+                var g: [CGPoint] = [], keys = Set<Int64>(), complete = true
+                for (x, y) in mirrors {
+                    let kk = key(x, y)
+                    guard let q = all[kk] else { complete = false; break }
+                    if keys.insert(kk).inserted { g.append(q) }
+                }
+                guard complete else { continue }
+                seen.formUnion(keys)
+                out.append(Group(d: hypot(p.x, p.y), pts: g))
+            }
+            return out
         }
-        // 3. 一般排法：中间最宽、往外变窄，尽量上下镜像
+        // 一圈一圈铺：里面几圈全取，最外的一两圈挑几组凑数；dropCenter 时空出离中心最近的一格
+        func shellFill(_ gs: [Group], dropCenter: Bool) -> (score: Double, pts: [CGPoint])? {
+            var shells: [[Group]] = []
+            for g in gs where g.d < 5 {
+                if let last = shells.last?.first, abs(last.d - g.d) < 1e-6 { shells[shells.count - 1].append(g) } else { shells.append([g]) }
+            }
+            var best: (score: Double, pts: [CGPoint])?
+            var base: [CGPoint] = []
+            for s in 0..<(shells.count - 1) {
+                defer { base += shells[s].flatMap(\.pts) }
+                var core = base
+                if dropCenter {
+                    guard let c = core.indices.min(by: { (hypot(core[$0].x, core[$0].y), -core[$0].x) < (hypot(core[$1].x, core[$1].y), -core[$1].x) }) else { continue }
+                    core.remove(at: c)
+                }
+                let need = n - core.count
+                if need < 0 { break }
+                let opts = Array((shells[s] + shells[s + 1]).prefix(14))
+                for mask in 0..<(1 << opts.count) {
+                    var cnt = 0
+                    for i in opts.indices where mask & (1 << i) != 0 { cnt += opts[i].pts.count }
+                    guard cnt == need else { continue }
+                    var pts = core
+                    for i in opts.indices where mask & (1 << i) != 0 { pts += opts[i].pts }
+                    guard !pts.isEmpty else { continue }
+                    let r = radius(pts)
+                    // 形状里没取的格子就是缺口，越靠里越难看
+                    var penalty = 0.0
+                    for i in opts.indices where mask & (1 << i) == 0 && opts[i].d < r - 1e-6 {
+                        penalty += Double(opts[i].pts.count) * (0.15 + 0.2 * max(0, r - opts[i].d - 0.5))
+                    }
+                    // 两头孤零零一个（旁边一行有 4 个以上）也难看
+                    let rs = rowCounts(pts)
+                    if rs.count > 1, rs.first == 1, rs[1] >= 4 { penalty += 0.4 }
+                    if rs.count > 1, rs.last == 1, rs[rs.count - 2] >= 4 { penalty += 0.4 }
+                    let score = r + penalty
+                    if score < (best?.score ?? .infinity) { best = (score, pts) }
+                }
+            }
+            return best
+        }
+        func rowCounts(_ pts: [CGPoint]) -> [Int] {
+            var c: [Int: Int] = [:]
+            for p in pts { c[Int((p.y * 1000).rounded()), default: 0] += 1 }
+            return c.keys.sorted().map { c[$0]! }
+        }
+        func recentered(_ pts: [CGPoint]) -> [CGPoint] {
+            let cx = pts.map(\.x).reduce(0, +) / CGFloat(pts.count), cy = pts.map(\.y).reduce(0, +) / CGFloat(pts.count)
+            return pts.map { CGPoint(x: $0.x - cx, y: $0.y - cy) }
+        }
+        var candidates: [(score: Double, pts: [CGPoint])] = []
+        let onCell = groups(ox: 0, oy: 0, mirrorY: true)          // 中心在格子上（奇数个）
+        let onEdge = groups(ox: 0.5, oy: 0, mirrorY: true)        // 中心在同一行两格之间（偶数个）
+        let onTriangle = groups(ox: 0.5, oy: rowStep / 3, mirrorY: false)  // 只左右镜像
+        if let c = shellFill(onCell, dropCenter: false) { candidates.append(c) }
+        if let c = shellFill(onCell, dropCenter: true) { candidates.append((c.score + 0.1, c.pts)) }
+        if let c = shellFill(onEdge, dropCenter: false) { candidates.append(c) }
+        if let c = shellFill(onEdge, dropCenter: true) { candidates.append((c.score + 0.12, c.pts)) }
+        if let c = shellFill(onTriangle, dropCenter: false) { candidates.append((c.score + 0.3, recentered(c.pts))) }
+        // 按行排的旧办法：中间最宽、往外变窄，尽量上下镜像
         var best: (score: Double, rows: [Int]) = (.infinity, [n])
         let minRows = n >= 3 ? 3 : 1
-        for rowCount in minRows...9 {
+        for rowCount in minRows...8 {
             var steps = [Int](repeating: -1, count: rowCount - 1)
-            for start in 1...9 {
-                // 枚举每一步 -1/0/+1（三进制计数）
+            for start in 1...8 {
                 let combos = Int(pow(3.0, Double(rowCount - 1)))
                 for code in 0..<combos {
                     var c = code
@@ -282,7 +340,8 @@ final class RadialView: NSView {
                 }
             }
         }
-        candidates.append((best.score + 0.2, layout(best.rows).pts))
+        if best.score.isFinite { candidates.append((best.score + 0.2, layout(best.rows).pts)) }
+        if candidates.isEmpty { candidates.append((0, layout([n]).pts)) }
         return finish(candidates.min { $0.score < $1.score }!.pts)
     }
 

@@ -11,6 +11,19 @@ if #available(macOS 26.0, *) {
         for i in running { print("  ● \(i.name)  \(i.url.path)") }
         exit(0)
     }
+    // `DockDot --honeycomb` 打印 8…40 个 App 时蜂窝每行的个数和计算耗时
+    if CommandLine.arguments.contains("--honeycomb") {
+        for n in 8...40 {
+            let t = Date()
+            let pts = RadialView.honeycomb(count: n)
+            var rows: [Int: Int] = [:]
+            for p in pts { rows[Int((p.y * 1000).rounded()), default: 0] += 1 }
+            let r = pts.map { hypot($0.x, $0.y) }.max() ?? 0
+            print(n, rows.keys.sorted().map { String(rows[$0]!) }.joined(separator: "-"),
+                  String(format: "r=%.2f  %.0fms", r, Date().timeIntervalSince(t) * 1000))
+        }
+        exit(0)
+    }
     // `DockDot --where` 只打印点击每个运行中 App 时会怎么切换（不实际切换），用于排查多屏/多桌面
     if CommandLine.arguments.contains("--where") {
         let (pinned, running) = DockReader.items()
