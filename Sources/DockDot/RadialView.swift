@@ -187,7 +187,8 @@ final class RadialView: NSView {
     /// - 总数正好等于 count；
     /// - 中间最宽、往上往下逐渐变窄（中心多、四周少）；
     /// 再按「外接圆小 + 上下镜像 + 两端比中间窄 + 错开的行少」打分选最好的。
-    /// 优先用完美对称的排法；差一个时用多一格的完美对称排法、空出正中间（而不是在边上留空）。
+    /// 另外两种候选：完美对称的排法；差一个时用多一格的完美对称排法、空出正中间（而不是在边上留空）。
+    /// 三种放在一起按紧凑程度挑，避免出现 7-8-7 这种扁长条。
     /// 按离中心由近到远排序。
     private static var honeycombCache: [Int: [CGPoint]] = [:]
 
@@ -217,20 +218,22 @@ final class RadialView: NSView {
             for i in p..<(r.count - 1) where r[i] < r[i + 1] { return false }
             return true
         }
+        func radius(_ pts: [CGPoint]) -> Double { pts.map { Double(hypot($0.x, $0.y)) }.max() ?? 0 }
         // 完美对称的蜂窝：奇数行、上下镜像、中间最宽、相邻行差 1（如 3-4-5-4-3）
-        func perfectSymmetric(_ total: Int) -> [Int]? {
-            var found: (radius: Double, rows: [Int])?
+        func perfectSymmetric(_ total: Int) -> (radius: Double, pts: [CGPoint])? {
+            var found: (radius: Double, pts: [CGPoint])?
             for half in 1...4 {                        // 中间行上面有几行
                 for middle in 2...12 {
                     let side = (1...half).map { middle - $0 }.reversed()
                     guard side.allSatisfy({ $0 >= 1 }) else { continue }
                     let rows = Array(side) + [middle] + Array(side.reversed())
                     guard rows.reduce(0, +) == total else { continue }
-                    let radius = layout(rows).pts.map { Double(hypot($0.x, $0.y)) }.max() ?? 0
-                    if radius < (found?.radius ?? .infinity) { found = (radius, rows) }
+                    let pts = layout(rows).pts
+                    let r = radius(pts)
+                    if r < (found?.radius ?? .infinity) { found = (r, pts) }
                 }
             }
-            return found?.rows
+            return found
         }
         func finish(_ pts: [CGPoint]) -> [CGPoint] {
             // 由近到远；距离相同时从正上方开始顺时针
@@ -243,18 +246,19 @@ final class RadialView: NSView {
             honeycombCache[n] = sorted
             return sorted
         }
+        // 几种候选放在一起比「整体有多圆、多紧凑」（外接圆越小越好），不再见到一种就直接用：
+        // 例如 22 个时完美对称只有 7-8-7 这种扁长条，不如 23 格的 2-3-4-5-4-3-2 空出正中间
+        var candidates: [(score: Double, pts: [CGPoint])] = []
         // 1. 正好有完美对称的排法
-        if n >= 7, let rows = perfectSymmetric(n) { return finish(layout(rows).pts) }
+        if n >= 7, let p = perfectSymmetric(n) { candidates.append((p.radius, p.pts)) }
         // 2. 差一个：用多一格的完美对称排法，把正中间那格空出来（不在边上留空）
-        if n >= 6, let rows = perfectSymmetric(n + 1) {
-            let pts = layout(rows).pts
-            if let c = pts.firstIndex(where: { hypot($0.x, $0.y) < 0.01 }) {
-                var rest = pts
-                rest.remove(at: c)
-                return finish(rest)
-            }
+        if n >= 6, let p = perfectSymmetric(n + 1),
+           let c = p.pts.firstIndex(where: { hypot($0.x, $0.y) < 0.01 }) {
+            var rest = p.pts
+            rest.remove(at: c)
+            candidates.append((p.radius + 0.1, rest))
         }
-        // 3. 其他数量：中间最宽、往外变窄，尽量上下镜像
+        // 3. 一般排法：中间最宽、往外变窄，尽量上下镜像
         var best: (score: Double, rows: [Int]) = (.infinity, [n])
         let minRows = n >= 3 ? 3 : 1
         for rowCount in minRows...9 {
@@ -270,16 +274,16 @@ final class RadialView: NSView {
                     for st in steps { let nx = rows[rows.count - 1] + st; if nx < 1 { ok = false; break }; rows.append(nx) }
                     guard ok, rows.reduce(0, +) == n, unimodal(rows) else { continue }
                     let (pts, shifted) = layout(rows)
-                    let radius = pts.map { Double(hypot($0.x, $0.y)) }.max() ?? 0
                     let asym = (0..<rows.count).reduce(0) { $0 + abs(rows[$1] - rows[rows.count - 1 - $1]) }
                     let top = rows.max()!
                     let noTaper = (rows.first == top || rows.last == top) && rows.count > 1 ? 0.45 : 0
-                    let score = radius + 0.15 * Double(asym) + 0.05 * Double(shifted) + noTaper
+                    let score = radius(pts) + 0.15 * Double(asym) + 0.05 * Double(shifted) + noTaper
                     if score < best.score { best = (score, rows) }
                 }
             }
         }
-        return finish(layout(best.rows).pts)
+        candidates.append((best.score + 0.2, layout(best.rows).pts))
+        return finish(candidates.min { $0.score < $1.score }!.pts)
     }
 
     /// 每块玻璃和它的参数：外圈、圆心各自用设置里的扭曲程度
